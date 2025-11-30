@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Per Diem Exchange - Operator Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: "Inter", sans-serif;
+            background: #0b0e11;
+            color: #cbd5e1;
+        }
+
+        #header {
+            background: #111722;
+            padding: 12px 16px;
+            border-bottom: 2px solid #1f2937;
+            font-size: 20px;
+        }
+
+        #main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .panel {
+            background: #111722;
+            border: 1px solid #1f2530;
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35);
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 22px;
+            color: #9ca3af;
+        }
+
+        #live-price {
+            font-size: 64px;
+            font-weight: 700;
+            color: #32ff87;
+            text-shadow: 0 0 18px rgba(50, 255, 135, 0.4);
+        }
+
+        #live-price.down {
+            color: #ff4e4e;
+            text-shadow: 0 0 18px rgba(255, 78, 78, 0.4);
+        }
+
+        .control-group {
+            display: flex;
+            margin-bottom: 12px;
+        }
+
+        .control-group input {
+            flex: 1;
+            padding: 6px;
+            border-radius: 6px;
+            border: none;
+            font-size: 16px;
+            margin-right: 8px;
+        }
+
+        .control-group button {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            background: #32ff87;
+            color: #0b0e11;
+            font-weight: 600;
+        }
+
+        #freeze-btn {
+            background: #c40000;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="header">Per Diem Exchange - Operator Panel</div>
+
+    <div id="main">
+
+        <!-- Price Display -->
+        <div class="panel" id="price-panel">
+            <h2>Current Price</h2>
+            <div id="live-price">10</div>
+            <div id="change">+0.00 (0.00%)</div>
+        </div>
+
+        <!-- Controls -->
+        <div class="panel" id="controls">
+            <h2>Trading Controls</h2>
+
+            <div class="control-group">
+                <input type="number" id="buy-amount" placeholder="Silver Amount">
+                <button id="buy-btn">Buy</button>
+            </div>
+            <div id="buy-preview" style="margin-bottom: 12px; font-size: 18px; color:#9ca3af;"></div>
+
+            <div class="control-group">
+                <input type="number" id="sell-amount" placeholder="PDM Amount">
+                <button id="sell-btn">Sell</button>
+            </div>
+            <div id="sell-preview" style="margin-bottom: 12px; font-size: 18px; color:#9ca3af;"></div>
+
+            <button id="freeze-btn">
+                Freeze Market
+            </button>
+
+
+        </div>
+
+    </div>
+
+    <script>
+        let state = { price: 10 };
+        let lastPrice = state.price;
+        let marketFrozen = false;
+
+        const socket = new WebSocket("ws://" + window.location.host + "/ws");
+
+        socket.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === "state") {
+                state = msg.state;
+                updatePrice(state.price);
+            }
+        };
+
+        socket.onopen = async (event) => {
+            const [times, prices] = await readHistory("static/stock.csv");
+            state.price = prices[prices.length - 1];
+            updatePrice(state.price);
+        };
+
+        async function readHistory(csvPath) {
+            const response = await fetch(csvPath);
+            const text = await response.text();
+            const lines = text.trim().split("\n");
+
+            const times = [];
+            const prices = [];
+            lines.forEach(line => {
+                const [time, price] = line.split('\t');
+                times.push(time);
+                prices.push(parseFloat(price));
+            });
+
+            return [times, prices];
+        }
+
+        function updatePrice(p) {
+            const priceEl = document.getElementById("live-price");
+            const changeEl = document.getElementById("change");
+
+            const old = lastPrice;
+            priceEl.textContent = p.toFixed(2);
+
+            const diff = p - old;
+            const pct = (diff / old) * 100;
+            changeEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)} (${pct.toFixed(2)}%)`;
+
+            if (diff >= 0) priceEl.classList.remove("down");
+            else priceEl.classList.add("down");
+
+            lastPrice = p;
+        }
+
+        const buyBtn = document.getElementById("buy-btn");
+        const sellBtn = document.getElementById("sell-btn");
+        const freezeBtn = document.getElementById("freeze-btn");
+
+        const buyPreview = document.getElementById("buy-preview");
+        const sellPreview = document.getElementById("sell-preview");
+
+        const buyInput = document.getElementById("buy-amount");
+        const sellInput = document.getElementById("sell-amount");
+
+        function updateBuyPreview() {
+            const silver = parseFloat(buyInput.value);
+            if (!isNaN(silver) && silver > 0) {
+                const pdm = silver * state.price;
+                const pdfmInt = Math.floor(pdm);
+                buyPreview.textContent = `${pdm.toFixed(4)} (${pdfmInt}) PDM`;
+            } else {
+                buyPreview.textContent = "";
+            }
+        }
+
+        function updateSellPreview() {
+            const pdm = parseFloat(sellInput.value);
+            if (!isNaN(pdm) && pdm > 0) {
+                const silver = pdm / state.price;
+                const silverInt = Math.floor(silver);
+                sellPreview.textContent = `${silver.toFixed(2)} (${silverInt}) Silver`;
+            } else {
+                sellPreview.textContent = "";
+            }
+        }
+
+        buyInput.addEventListener("input", updateBuyPreview);
+        sellInput.addEventListener("input", updateSellPreview);
+        freezeBtn.addEventListener("click", () => {
+            marketFrozen = !marketFrozen;
+            socket.send(JSON.stringify({ type: "freeze", freeze: marketFrozen }));
+            if (marketFrozen) {
+                freezeBtn.textContent = "Unfreeze Market";
+                freezeBtn.style.backgroundColor = "green"
+            } else {
+                freezeBtn.textContent = "Freeze Market";
+                freezeBtn.style.backgroundColor = "red";
+            }
+        });
+
+        buyBtn.onclick = () => {
+            const silver = parseFloat(buyInput.value);
+            const pdm = silver * state.price;
+            if (!isNaN(silver) && silver > 0) {
+                socket.send(JSON.stringify({ type: "buy", "pdm": pdm }));
+            }
+            buyInput.value = "";
+            updateBuyPreview();
+        };
+
+        sellBtn.onclick = () => {
+            const pdm = parseFloat(sellInput.value);
+            if (!isNaN(pdm) && pdm > 0) {
+                socket.send(JSON.stringify({ type: "sell", "pdm": pdm }));
+            }
+            sellInput.value = "";
+            updateSellPreview();
+        };
+
+    </script>
+</body>
+
+</html>

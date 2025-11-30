@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Per Diem Exchange - Live Market</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        /* ---------- THEME ---------- */
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: "Inter", sans-serif;
+            background: #0b0e11;
+            color: #cbd5e1;
+        }
+
+        /* ---------- TICKER ---------- */
+        #ticker {
+            width: 100%;
+            background: #111722;
+            border-bottom: 2px solid #1f2937;
+            color: #9ca3af;
+            padding: 8px;
+            font-size: 18px;
+            min-height: 20px;
+            line-height: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+        }
+
+        .ticker-inner {
+            display: inline-block;
+            animation: marquee 18s linear infinite;
+            white-space: nowrap;
+        }
+
+        @keyframes marquee {
+            0% {
+                transform: translateX(100vw);
+            }
+
+            100% {
+                transform: translateX(-50vw);
+            }
+        }
+
+
+        /* ---------- LAYOUT GRID ---------- */
+        #main {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 12px;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+
+        .panel {
+            background: #111722;
+            border: 1px solid #1f2530;
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35);
+        }
+
+        /* ---------- PRICE BOARD ---------- */
+        #price-panel {
+            font-size: 22px;
+        }
+
+        #live-price {
+            font-size: 72px;
+            font-weight: 700;
+            color: #32ff87;
+            text-shadow: 0 0 18px rgba(50, 255, 135, 0.4);
+        }
+
+        #live-price.down {
+            color: #ff4e4e;
+            text-shadow: 0 0 18px rgba(255, 78, 78, 0.4);
+        }
+
+        #change {
+            font-size: 24px;
+            margin-top: 6px;
+        }
+
+        /* ---------- CHART PANEL ---------- */
+        #chart {
+            flex: 1;
+            background: #111722;
+            border: 1px solid #1a2230;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        /* ---------- MARKET DEPTH ---------- */
+        .depth-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 16px;
+        }
+
+        .depth-bid {
+            color: #32ff87;
+        }
+
+        .depth-ask {
+            color: #ff4e4e;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Ticker -->
+    <div id="ticker">
+        <div class="ticker-inner">
+            <span>• PER DIEM EXCHANGE • LIVE MARKET FEED • </span>
+        </div>
+    </div>
+
+    <!-- Main grid -->
+    <div id="main">
+
+        <!-- Price panel -->
+        <div class="panel" id="price-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-size: 26px; color:#9ca3af;">PER DIEM (PDM)</div>
+                    <div id="live-price">10</div>
+                    <div id="change">+0.00 (0.00%)</div>
+                </div>
+                <img src="" style="height:80px; opacity:0.2;">
+            </div>
+
+            <!-- <canvas id="chart"></canvas> -->
+            <canvas id="chart"></canvas>
+        </div>
+
+        <!-- Trade Log -->
+        <div class="panel">
+            <div style="font-size:22px; margin-bottom:10px;">Recent Trades: PDM @ PRICE</div>
+            <div id="trade-log" style="overflow-y:auto; max-height:300px;">
+                <!-- New entries will be prepended here -->
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let state = { price: 10 };
+        let lastPrice = state.price;
+
+        const ctx = document.getElementById('chart').getContext('2d');
+        const data = {
+            datasets: [
+                {
+                    label: 'PDM',
+                    data: [],
+                    backgroundColor: 'rgba(255, 255, 255, 1.0)',
+
+                    segment: {
+                        borderColor: ctx => {
+                            return ctx.p1.parsed.y > ctx.p0.parsed.y ? 'green' : 'red';
+                        }
+                    }
+                }
+            ]
+        };
+        const config = {
+            type: 'line',
+            data: data,
+            options: {
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        };
+        const chart = new Chart(ctx, config);
+
+        let socket = new WebSocket("ws://" + window.location.host + "/ws");
+
+        socket.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === "state") {
+                state = msg.state;
+                updatePrice(state.price);
+
+                const [times, prices] = await readHistory("static/stock.csv");
+                updateChart(times, prices);
+            }
+            if (msg.type === "frozen") {
+                updateFrozen(msg.frozen);
+            }
+            if (msg.type == "buy")
+                addTradeEntry("buy", msg.pdm, msg.price);
+            if (msg.type == "sell")
+                addTradeEntry("sell", msg.pdm, msg.price);
+        };
+
+        socket.onopen = async (event) => {
+            const [times, prices] = await readHistory("static/stock.csv");
+            updatePrice(prices[prices.length - 1]);
+            updateChart(times, prices);
+        };
+
+        function updatePrice(p) {
+            const priceEl = document.getElementById("live-price");
+            const changeEl = document.getElementById("change");
+
+            const old = lastPrice;
+            priceEl.textContent = p.toFixed(2);
+
+            const diff = p - old;
+            const pct = (diff / old) * 100;
+
+            changeEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)} (${pct.toFixed(2)}%)`;
+
+            if (diff >= 0) priceEl.classList.remove("down");
+            else priceEl.classList.add("down");
+
+            lastPrice = p;
+        }
+
+        async function readHistory(csvPath) {
+            const response = await fetch(csvPath);
+            const text = await response.text();
+            const lines = text.trim().split("\n");
+
+            const times = [];
+            const prices = [];
+            lines.forEach(line => {
+                const [time, price] = line.split('\t');
+                times.push(time);
+                prices.push(parseFloat(price));
+            });
+
+            return [times, prices];
+        }
+
+        function updateChart(times, prices) {
+            const data = chart.data;
+            if (data.datasets.length > 0) {
+                data.labels = times;
+                data.datasets[0].data = prices;
+                chart.update();
+            }
+        }
+
+        function updateFrozen(isFrozen) {
+            document.getElementById("frozen-label").style.display = isFrozen ? "block" : "none";
+        }
+
+        const tradeLog = document.getElementById("trade-log");
+        const MAX_ENTRIES = 50;
+
+        function addTradeEntry(type, pdm, price) {
+            pdmInt = Math.floor(pdm);
+            const entry = document.createElement("div");
+            entry.className = "depth-entry " + (type === "buy" ? "depth-bid" : "depth-ask");
+            entry.innerHTML = `<span>${type.toUpperCase()}</span><span>${pdmInt}\t@\t${price.toFixed(2)}</span>`;
+
+            // Prepend at the top
+            tradeLog.prepend(entry);
+
+            // Remove old entries if exceed MAX_ENTRIES
+            while (tradeLog.childNodes.length > MAX_ENTRIES) {
+                tradeLog.removeChild(tradeLog.lastChild);
+            }
+        }
+
+    </script>
+
+</body>
+
+<div id="frozen-label" style="
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-90%, -50%);
+    font-size: 120px;
+    color: rgba(255, 0, 0, 0.4);
+    font-weight: 900;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+">FROZEN</div>
+
+</html>
