@@ -7,6 +7,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <style>
+        :root {
+            --font-ticker: 24px;
+            --font-panel-title: 28px;
+            --font-price: 80px;
+            --font-change: 32px;
+            --font-trade-log-header: 26px;
+            --font-trade-entry: 20px;
+            --font-frozen-label: 140px;
+        }
+
+
         /* ---------- THEME ---------- */
         body {
             margin: 0;
@@ -25,7 +36,7 @@
             border-bottom: 2px solid #1f2937;
             color: #9ca3af;
             padding: 8px;
-            font-size: 18px;
+            font-size: var(--font-ticker);
             min-height: 20px;
             line-height: 1;
             white-space: nowrap;
@@ -63,6 +74,11 @@
             box-sizing: border-box;
         }
 
+        .panel-title {
+            font-size: var(--font-panel-title);
+            color: #9ca3af;
+        }
+
 
         .panel {
             background: #111722;
@@ -76,11 +92,11 @@
 
         /* ---------- PRICE BOARD ---------- */
         #price-panel {
-            font-size: 22px;
+            font-size: var(--font-price);
         }
 
         #live-price {
-            font-size: 72px;
+            font-size: var(--font-price);
             font-weight: 700;
             color: #32ff87;
             text-shadow: 0 0 18px rgba(50, 255, 135, 0.4);
@@ -92,7 +108,7 @@
         }
 
         #change {
-            font-size: 24px;
+            font-size: var(--font-change);
             margin-top: 6px;
         }
 
@@ -105,21 +121,56 @@
             margin-top: 12px;
         }
 
-        /* ---------- MARKET DEPTH ---------- */
+        /* ---------- TRADE ---------- */
+
         .depth-entry {
             display: flex;
             justify-content: space-between;
             padding: 4px 0;
-            font-family: "JetBrains Mono", monospace;
-            font-size: 16px;
+            font-size: var(--font-trade-entry);
         }
 
-        .depth-bid {
+        .trade-time {
+            font-family: "JetBrains Mono", monospace;
+            color: #9ca3af;
+        }
+
+        .trade-values {
+            font-family: "Inter", sans-serif;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .depth-bid .trade-values {
             color: #32ff87;
         }
 
-        .depth-ask {
+        .depth-ask .trade-values {
             color: #ff4e4e;
+        }
+
+        .trade-log-header {
+            font-size: var(--font-trade-log-header);
+            font-weight: 600;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background-color: #111722;
+            border-radius: 6px;
+            border: 1px solid #1f2530;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .trade-log-header .label {
+            font-family: "JetBrains Mono", monospace;
+            color: #32ff87;
+        }
+
+        .trade-log-header .columns {
+            font-family: "Inter", sans-serif;
+            color: #cbd5e1;
         }
     </style>
 </head>
@@ -140,7 +191,7 @@
         <div class="panel" id="price-panel">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <div style="font-size: 26px; color:#9ca3af;">PER DIEM (PDM)</div>
+                    <div class="panel-title">PER DIEM (PDM)</div>
                     <div id="live-price">10</div>
                     <div id="change">+0.00 (0.00%)</div>
                 </div>
@@ -153,7 +204,10 @@
 
         <!-- Trade Log -->
         <div class="panel">
-            <div style="font-size:22px; margin-bottom:10px;">Recent Trades: PDM @ PRICE</div>
+            <div class="trade-log-header">
+                <span class="label">Trade Log:</span>
+                <span class="columns">PDM @ PRICE</span>
+            </div>
             <div id="trade-log" style="overflow-y:auto; max-height:300px;">
                 <!-- New entries will be prepended here -->
             </div>
@@ -163,17 +217,16 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        let state = { price: 10 };
-        let lastPrice = state.price;
-
+        const MAX_TRADES = 50;
+    </script>
+    <script>
         const ctx = document.getElementById('chart').getContext('2d');
         const data = {
             datasets: [
                 {
                     label: 'PDM',
                     data: [],
-                    backgroundColor: 'rgba(255, 255, 255, 1.0)',
-
+                    backgroundColor: 'rgba(255, 255, 255, 0.0)',
                     segment: {
                         borderColor: ctx => {
                             return ctx.p1.parsed.y > ctx.p0.parsed.y ? 'green' : 'red';
@@ -188,77 +241,117 @@
             options: {
                 plugins: {
                     legend: {
-                        display: false
+                        display: false,
+                        labels: {
+                            font: {
+                                family: 'Inter, sans-serif',  // font family
+                                size: 18,                     // font size in px
+                                weight: '600'                 // font weight
+                            },
+                            color: '#cbd5e1'
+                        }
+                    },
+                    title: {
+                        display: false,
+                        text: 'Price Chart',
+                        font: {
+                            family: 'JetBrains Mono, monospace',
+                            size: 22,
+                            weight: '700'
+                        },
+                        color: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            font: {
+                                family: 'JetBrains Mono, monospace',
+                                size: 16,
+                                weight: '500',
+                            },
+                            color: '#9ca3af',
+                            maxTicksLimit: 20,
+                            minRotation: 45,
+                            autoSkip: true,
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            font: {
+                                family: 'Inter, sans-serif',
+                                size: 16,
+                                weight: '500',
+                            },
+                            color: '#cbd5e1',
+                        }
                     }
                 }
             }
         };
+
         const chart = new Chart(ctx, config);
 
         let socket = new WebSocket("ws://" + window.location.host + "/ws");
 
+        socket.onopen = async (event) => {
+
+        };
+
         socket.onmessage = async (event) => {
             const msg = JSON.parse(event.data);
-            if (msg.type === "state") {
-                state = msg.state;
-                updatePrice(state.price);
 
-                const [times, prices] = await readHistory("static/stock.csv");
-                updateChart(times, prices);
-            }
-            if (msg.type === "frozen") {
-                updateFrozen(msg.frozen);
-            }
+            if (msg.type === "engine")
+                update(msg.engine);
             if (msg.type == "buy")
-                addTradeEntry("buy", msg.pdm, msg.price);
+                loadTradeLog()
             if (msg.type == "sell")
-                addTradeEntry("sell", msg.pdm, msg.price);
+                loadTradeLog()
         };
 
-        socket.onopen = async (event) => {
-            const [times, prices] = await readHistory("static/stock.csv");
-            updatePrice(prices[prices.length - 1]);
+        function update(engine) {
+            const times = engine.times;
+            const prices = engine.prices;
+            const frozen = engine.frozen;
+
+            updatePrice(prices);
             updateChart(times, prices);
-        };
+            updateFrozen(frozen);
+            loadTradeLog();
+        }
 
-        function updatePrice(p) {
+        function updatePrice(prices) {
+            price = prices[prices.length - 1];
+            if (prices.length > 1) {
+                prevPrice = prices[prices.length - 2];
+            } else {
+                prevPrice = price;
+            }
+
             const priceEl = document.getElementById("live-price");
             const changeEl = document.getElementById("change");
+            const diff = price - prevPrice;
+            const pct = (diff / prevPrice) * 100;
 
-            const old = lastPrice;
-            priceEl.textContent = p.toFixed(2);
-
-            const diff = p - old;
-            const pct = (diff / old) * 100;
-
+            priceEl.textContent = price.toFixed(2);
             changeEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)} (${pct.toFixed(2)}%)`;
 
             if (diff >= 0) priceEl.classList.remove("down");
             else priceEl.classList.add("down");
-
-            lastPrice = p;
-        }
-
-        async function readHistory(csvPath) {
-            const response = await fetch(csvPath);
-            const text = await response.text();
-            const lines = text.trim().split("\n");
-
-            const times = [];
-            const prices = [];
-            lines.forEach(line => {
-                const [time, price] = line.split('\t');
-                times.push(time);
-                prices.push(parseFloat(price));
-            });
-
-            return [times, prices];
         }
 
         function updateChart(times, prices) {
             const data = chart.data;
+
             if (data.datasets.length > 0) {
-                data.labels = times;
+
+                data.labels = times.map(t => {
+                    const d = new Date(t * 1000);
+                    const hh = d.getHours().toString().padStart(2, '0');
+                    const mm = d.getMinutes().toString().padStart(2, '0');
+                    return `${hh}:${mm}`;
+                });
+
                 data.datasets[0].data = prices;
                 chart.update();
             }
@@ -269,21 +362,45 @@
         }
 
         const tradeLog = document.getElementById("trade-log");
-        const MAX_ENTRIES = 50;
+        const TRADE_LOG_FILE = "static/trade_log.txt";
 
-        function addTradeEntry(type, pdm, price) {
-            pdmInt = Math.floor(pdm);
+        async function loadTradeLog() {
+            const response = await fetch(TRADE_LOG_FILE);
+            const text = await response.text();
+            const lines = text.trim().split("\n");
+
+            tradeLog.innerHTML = "";
+
+            const recentLines = lines.slice(-MAX_TRADES);
+
+            recentLines.reverse().forEach(line => {
+                const parts = line.trim().split(",");
+                if (parts.length < 3) return;
+
+                const [epochStr, pdmStr, priceStr] = parts;
+                const epoch = parseFloat(epochStr);
+                const pdm = parseFloat(pdmStr);
+                const price = parseFloat(priceStr);
+
+                addTradeEntryFromFile(epoch, pdm, price);
+            });
+        }
+
+        function addTradeEntryFromFile(time, pdm, price) {
+            const pdmInt = Math.abs(Math.floor(pdm));
             const entry = document.createElement("div");
-            entry.className = "depth-entry " + (type === "buy" ? "depth-bid" : "depth-ask");
-            entry.innerHTML = `<span>${type.toUpperCase()}</span><span>${pdmInt}\t@\t${price.toFixed(2)}</span>`;
+            entry.className = "depth-entry " + (parseFloat(pdm) >= 0 ? "depth-bid" : "depth-ask");
 
-            // Prepend at the top
+            const date = new Date(parseFloat(time) * 1000);
+            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+            entry.innerHTML = `
+        <span class="trade-time">${timeStr}</span>
+        <span class="trade-values">
+            ${pdmInt} @ ${parseFloat(price).toFixed(2)}
+        </span>`;
+
             tradeLog.prepend(entry);
-
-            // Remove old entries if exceed MAX_ENTRIES
-            while (tradeLog.childNodes.length > MAX_ENTRIES) {
-                tradeLog.removeChild(tradeLog.lastChild);
-            }
         }
 
     </script>

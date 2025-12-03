@@ -137,58 +137,7 @@
     </div>
 
     <script>
-        let state = { price: 10 };
-        let lastPrice = state.price;
-        let marketFrozen = false;
-
-        const socket = new WebSocket("ws://" + window.location.host + "/ws");
-
-        socket.onmessage = async (event) => {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "state") {
-                state = msg.state;
-                updatePrice(state.price);
-            }
-        };
-
-        socket.onopen = async (event) => {
-            const [times, prices] = await readHistory("static/stock.csv");
-            state.price = prices[prices.length - 1];
-            updatePrice(state.price);
-        };
-
-        async function readHistory(csvPath) {
-            const response = await fetch(csvPath);
-            const text = await response.text();
-            const lines = text.trim().split("\n");
-
-            const times = [];
-            const prices = [];
-            lines.forEach(line => {
-                const [time, price] = line.split('\t');
-                times.push(time);
-                prices.push(parseFloat(price));
-            });
-
-            return [times, prices];
-        }
-
-        function updatePrice(p) {
-            const priceEl = document.getElementById("live-price");
-            const changeEl = document.getElementById("change");
-
-            const old = lastPrice;
-            priceEl.textContent = p.toFixed(2);
-
-            const diff = p - old;
-            const pct = (diff / old) * 100;
-            changeEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)} (${pct.toFixed(2)}%)`;
-
-            if (diff >= 0) priceEl.classList.remove("down");
-            else priceEl.classList.add("down");
-
-            lastPrice = p;
-        }
+        let price = 10;
 
         const buyBtn = document.getElementById("buy-btn");
         const sellBtn = document.getElementById("sell-btn");
@@ -200,10 +149,53 @@
         const buyInput = document.getElementById("buy-amount");
         const sellInput = document.getElementById("sell-amount");
 
+        const socket = new WebSocket("ws://" + window.location.host + "/ws");
+
+        socket.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === "engine")
+                update(msg.engine);
+        };
+
+        socket.onopen = async (event) => {
+        };
+
+        function update(engine) {
+            const times = engine.times;
+            const prices = engine.prices;
+            const frozen = engine.frozen;
+
+            updatePrice(prices);
+
+            // comment these to disable dynamic price updates
+            // updateBuyPreview();
+            // updateSellPreview();
+        }
+
+        function updatePrice(prices) {
+            price = prices[prices.length - 1];
+            if (prices.length > 1) {
+                prevPrice = prices[prices.length - 2];
+            } else {
+                prevPrice = price;
+            }
+
+            const priceEl = document.getElementById("live-price");
+            const changeEl = document.getElementById("change");
+            const diff = price - prevPrice;
+            const pct = (diff / prevPrice) * 100;
+
+            priceEl.textContent = price.toFixed(2);
+            changeEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)} (${pct.toFixed(2)}%)`;
+
+            if (diff >= 0) priceEl.classList.remove("down");
+            else priceEl.classList.add("down");
+        }
+
         function updateBuyPreview() {
             const silver = parseFloat(buyInput.value);
             if (!isNaN(silver) && silver > 0) {
-                const pdm = silver * state.price;
+                const pdm = silver * price;
                 const pdfmInt = Math.floor(pdm);
                 buyPreview.textContent = `${pdm.toFixed(4)} (${pdfmInt}) PDM`;
             } else {
@@ -214,7 +206,7 @@
         function updateSellPreview() {
             const pdm = parseFloat(sellInput.value);
             if (!isNaN(pdm) && pdm > 0) {
-                const silver = pdm / state.price;
+                const silver = pdm / price;
                 const silverInt = Math.floor(silver);
                 sellPreview.textContent = `${silver.toFixed(2)} (${silverInt}) Silver`;
             } else {
@@ -237,8 +229,9 @@
         });
 
         buyBtn.onclick = () => {
+            // USE THE SAVED PRICE HERE INSTEAD OF THE REAL PRICE!!!!!
             const silver = parseFloat(buyInput.value);
-            const pdm = silver * state.price;
+            const pdm = silver * price;
             if (!isNaN(silver) && silver > 0) {
                 socket.send(JSON.stringify({ type: "buy", "pdm": pdm }));
             }
