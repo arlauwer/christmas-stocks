@@ -95,6 +95,26 @@
             font-weight: 600;
             cursor: pointer;
         }
+
+        #return-btn {
+            background: #32ff87;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .event-btn {
+            background: #32ff87;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -131,6 +151,22 @@
                 Freeze Market
             </button>
 
+            <button id="return-btn">
+                Allow Return
+            </button>
+
+            <span id="return-info"></span>
+
+            <span id="event-info"></span>
+
+            <button class="event⁻btn" id="coffee-btn">
+                Fire 'Coffee'event
+            </button>
+
+            <button class="event⁻btn" id="grant-btn">
+                Fire 'Grant'event
+            </button>
+
 
         </div>
 
@@ -140,14 +176,23 @@
         let price = 10;
 
         const buyBtn = document.getElementById("buy-btn");
-        const sellBtn = document.getElementById("sell-btn");
-        const freezeBtn = document.getElementById("freeze-btn");
-
-        const buyPreview = document.getElementById("buy-preview");
-        const sellPreview = document.getElementById("sell-preview");
-
         const buyInput = document.getElementById("buy-amount");
+        const buyPreview = document.getElementById("buy-preview");
+        let buyPrice = 0;
+
+        const sellBtn = document.getElementById("sell-btn");
         const sellInput = document.getElementById("sell-amount");
+        const sellPreview = document.getElementById("sell-preview");
+        let sellPrice = 0;
+
+        const freezeBtn = document.getElementById("freeze-btn");
+        const returnBtn = document.getElementById("return-btn");
+        const returnInfo = document.getElementById("return-info");
+
+        // Event Buttons
+        const eventInfo = document.getElementById("event-info");
+        const coffeeBtn = document.getElementById("coffee-btn");
+        const grantBtn = document.getElementById("grant-btn");
 
         const socket = new WebSocket("ws://" + window.location.host + "/ws");
 
@@ -160,14 +205,24 @@
         socket.onopen = async (event) => {
         };
 
+        /* ---------- Update Functions ---------- */
+
         function update(engine) {
             const times = engine.times;
             const prices = engine.prices;
             const frozen = engine.frozen;
+            const allowReturn = engine.allow_return;
+            const returning = engine.returning;
+            const event = engine.event;
 
             updatePrice(prices);
+            updateFrozenBtn(frozen);
+            updateReturnBtn(allowReturn, returning);
 
-            // comment these to disable dynamic price updates
+            updateEventInfo(event);
+
+
+            // comment these to disable dynamic price updates //
             // updateBuyPreview();
             // updateSellPreview();
         }
@@ -195,6 +250,7 @@
         function updateBuyPreview() {
             const silver = parseFloat(buyInput.value);
             if (!isNaN(silver) && silver > 0) {
+                buyPrice = price;
                 const pdm = silver * price;
                 const pdfmInt = Math.floor(pdm);
                 buyPreview.textContent = `${pdm.toFixed(4)} (${pdfmInt}) PDM`;
@@ -206,6 +262,7 @@
         function updateSellPreview() {
             const pdm = parseFloat(sellInput.value);
             if (!isNaN(pdm) && pdm > 0) {
+                sellPrice = price;
                 const silver = pdm / price;
                 const silverInt = Math.floor(silver);
                 sellPreview.textContent = `${silver.toFixed(2)} (${silverInt}) Silver`;
@@ -214,26 +271,48 @@
             }
         }
 
-        buyInput.addEventListener("input", updateBuyPreview);
-        sellInput.addEventListener("input", updateSellPreview);
-        freezeBtn.addEventListener("click", () => {
-            marketFrozen = !marketFrozen;
-            socket.send(JSON.stringify({ type: "freeze", freeze: marketFrozen }));
-            if (marketFrozen) {
-                freezeBtn.textContent = "Unfreeze Market";
-                freezeBtn.style.backgroundColor = "green"
+        function updateFrozenBtn(frozen) {
+            freezeBtn.textContent = frozen ? "Unfreeze Market" : "Freeze Market";
+            freezeBtn.style.backgroundColor = frozen ? "red" : "green";
+        }
+
+        function updateReturnBtn(allowReturn, returning) {
+            returnBtn.textContent = allowReturn ? "Disallow Return" : "Allow Return";
+            returnBtn.style.backgroundColor = allowReturn ? "green" : "red";
+            if (allowReturn) {
+                if (returning > 0)
+                    returnInfo.textContent = `Returning up`;
+                else if (returning < 0)
+                    returnInfo.textContent = `Returning down`;
+                else
+                    returnInfo.textContent = `Not returning`;
             } else {
-                freezeBtn.textContent = "Freeze Market";
-                freezeBtn.style.backgroundColor = "red";
+                returnInfo.textContent = "Not allowed to return";
             }
-        });
+        }
+
+        function updateEventInfo(event) {
+            if (event.finished) {
+                eventInfo.textContent = "No event";
+            } else {
+                name = event.name;
+                tick = event.tick;
+                dticks = event.dticks;
+                maxMu = event.max_mu;
+                priority = event.priority;
+
+                eventInfo.textContent = `${name}: ${tick}/${dticks} ; max_mu=${maxMu} ; priority=${priority}`;
+            }
+
+        }
+
+        /* ---------- Event Listeners ---------- */
 
         buyBtn.onclick = () => {
-            // USE THE SAVED PRICE HERE INSTEAD OF THE REAL PRICE!!!!!
             const silver = parseFloat(buyInput.value);
-            const pdm = silver * price;
+            const pdm = silver * buyPrice;
             if (!isNaN(silver) && silver > 0) {
-                socket.send(JSON.stringify({ type: "buy", "pdm": pdm }));
+                socket.send(JSON.stringify({ "type": "exchange", "pdm": pdm, "displayPrice": buyPrice }));
             }
             buyInput.value = "";
             updateBuyPreview();
@@ -242,11 +321,27 @@
         sellBtn.onclick = () => {
             const pdm = parseFloat(sellInput.value);
             if (!isNaN(pdm) && pdm > 0) {
-                socket.send(JSON.stringify({ type: "sell", "pdm": pdm }));
+                socket.send(JSON.stringify({ "type": "exchange", "pdm": -pdm, "displayPrice": sellPrice }));
             }
             sellInput.value = "";
             updateSellPreview();
         };
+
+        buyInput.addEventListener("input", updateBuyPreview);
+        sellInput.addEventListener("input", updateSellPreview);
+        freezeBtn.addEventListener("click", () => {
+            socket.send(JSON.stringify({ "type": "freeze" }));
+        });
+        returnBtn.addEventListener("click", () => {
+            socket.send(JSON.stringify({ "type": "allow-return" }));
+        });
+        coffeeBtn.addEventListener("click", () => {
+            socket.send(JSON.stringify({ "type": "event", "event": "coffee" }));
+        });
+
+        grantBtn.addEventListener("click", () => {
+            socket.send(JSON.stringify({ "type": "event", "event": "grant" }));
+        });
 
     </script>
 </body>
