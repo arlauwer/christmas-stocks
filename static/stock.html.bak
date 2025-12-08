@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Per Diem Exchange - Live Market</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        :root {
+            --font-ticker: 24px;
+            --font-panel-title: 28px;
+            --font-price: 80px;
+            --font-change: 32px;
+            --font-trade-log-header: 26px;
+            --font-trade-entry: 22px;
+            --font-frozen-label: 140px;
+        }
+
+
+        /* ---------- THEME ---------- */
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: "Inter", sans-serif;
+            background: #0b0e11;
+            color: #cbd5e1;
+        }
+
+        /* ---------- TICKER ---------- */
+        #ticker {
+            width: 100%;
+            background: #111722;
+            border-bottom: 2px soid #1f2937;
+            color: #9ca3af;
+            padding: 8px;
+            font-size: var(--font-ticker);
+            min-height: 20px;
+            line-height: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+        }
+
+        .ticker-inner {
+            display: inline-block;
+            animation: marquee 18s linear infinite;
+            white-space: nowrap;
+        }
+
+        @keyframes marquee {
+            0% {
+                transform: translateX(100vw);
+            }
+
+            100% {
+                transform: translateX(-60vw);
+            }
+        }
+
+
+        /* ---------- LAYOUT GRID ---------- */
+        #main {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 12px;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+        .panel-title {
+            font-size: var(--font-panel-title);
+            color: #9ca3af;
+        }
+
+
+        .panel {
+            background: #111722;
+            border: 1px solid #1f2530;
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35);
+        }
+
+        /* ---------- PRICE BOARD ---------- */
+        #price-panel {
+            font-size: var(--font-price);
+        }
+
+        #live-price {
+            font-size: var(--font-price);
+            font-weight: 700;
+            color: #32ff87;
+            text-shadow: 0 0 18px rgba(50, 255, 135, 0.4);
+        }
+
+        #live-price.down {
+            color: #ff4e4e;
+            text-shadow: 0 0 18px rgba(255, 78, 78, 0.4);
+        }
+
+        #change {
+            font-size: var(--font-change);
+            margin-top: 6px;
+        }
+
+        /* ---------- CHART PANEL ---------- */
+        #chart {
+            flex: 1;
+            background: #111722;
+            border: 1px solid #1a2230;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        /* ---------- TRADE ---------- */
+
+        .depth-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: var(--font-trade-entry);
+        }
+
+        .trade-time {
+            font-family: "JetBrains Mono", monospace;
+            color: #9ca3af;
+        }
+
+        .trade-values {
+            font-family: "Inter", sans-serif;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .depth-bid .trade-values {
+            color: #32ff87;
+        }
+
+        .depth-ask .trade-values {
+            color: #ff4e4e;
+        }
+
+        .trade-log-header {
+            font-size: var(--font-trade-log-header);
+            font-weight: 600;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background-color: #111722;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .trade-log-header .label {
+            font-family: "JetBrains Mono", monospace;
+            border: none;
+            color: #32ff87;
+        }
+
+        .trade-log-header .columns {
+            font-family: "Inter", sans-serif;
+            color: #cbd5e1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Ticker -->
+    <div id="ticker">
+        <div class="ticker-inner" id="tickerText"></div>
+    </div>
+
+
+    <!-- Main grid -->
+    <div id="main">
+
+        <!-- Price panel -->
+        <div class="panel" id="price-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div class="panel-title">PER DIEM (PDM)</div>
+                    <div id="live-price">10</div>
+                    <div id="change">+0.00 (0.00%)</div>
+                </div>
+                <img src="" style="height:80px; opacity:0.2;">
+            </div>
+
+            <canvas id="chart"></canvas>
+        </div>
+
+        <!-- Trade Log -->
+        <div class="panel">
+            <div class="trade-log-header">
+                <span class="label">Trade Log:</span>
+                <span class="columns">PDM @ PRICE</span>
+            </div>
+            <div id="trade-log">
+                <!-- New entries will be prepended here -->
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('chart').getContext('2d');
+        const data = {
+            datasets: [
+                {
+                    label: 'PDM',
+                    data: [],
+                    backgroundColor: 'rgba(255, 255, 255, 0.0)',
+                    segment: {
+                        borderColor: ctx => {
+                            return ctx.p1.parsed.y > ctx.p0.parsed.y ? 'green' : 'red';
+                        }
+                    }
+                }
+            ]
+        };
+        const config = {
+            type: 'line',
+            data: data,
+            options: {
+                animation: {
+                    duration: 300,         // slide-speed
+                    easing: 'linear',
+                    y: { duration: 0 }
+                },
+                plugins: {
+                    legend: {
+                        display: false,
+                        labels: {
+                            font: {
+                                family: 'Inter, sans-serif',  // font family
+                                size: 18,                     // font size in px
+                                weight: '600'                 // font weight
+                            },
+                            color: '#cbd5e1'
+                        }
+                    },
+                    title: {
+                        display: false,
+                        text: 'Price Chart',
+                        font: {
+                            family: 'JetBrains Mono, monospace',
+                            size: 22,
+                            weight: '700'
+                        },
+                        color: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            font: {
+                                family: 'JetBrains Mono, monospace',
+                                size: 16,
+                                weight: '500',
+                            },
+                            color: '#9ca3af',
+                            maxTicksLimit: 20,
+                            minRotation: 45,
+                            autoSkip: true,
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            font: {
+                                family: 'Inter, sans-serif',
+                                size: 16,
+                                weight: '500',
+                            },
+                            color: '#cbd5e1',
+                        }
+                    }
+                }
+            }
+        };
+
+        const chart = new Chart(ctx, config);
+
+        let socket = new WebSocket("ws://" + window.location.host + "/ws");
+
+        socket.onopen = async (event) => {
+
+        };
+
+        socket.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+
+            if (msg.type === "engine")
+                update(msg.engine);
+            if (msg.type == "buy")
+                loadTradeLog()
+            if (msg.type == "sell")
+                loadTradeLog()
+        };
+
+        function update(engine) {
+            const times = engine.times;
+            const prices = engine.prices;
+            const frozen = engine.frozen;
+
+            updatePrice(prices);
+            updateChart(times, prices);
+            updateFrozen(frozen);
+            loadTradeLog();
+        }
+
+        function updatePrice(prices) {
+            price = prices[prices.length - 1];
+            if (prices.length > 1) {
+                prevPrice = prices[prices.length - 2];
+            } else {
+                prevPrice = price;
+            }
+
+            const priceEl = document.getElementById("live-price");
+            const changeEl = document.getElementById("change");
+            const diff = price - prevPrice;
+            const pct = (diff / prevPrice) * 100;
+
+            priceEl.textContent = price.toFixed(2);
+            changeEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)} (${pct.toFixed(2)}%)`;
+
+            if (diff >= 0) priceEl.classList.remove("down");
+            else priceEl.classList.add("down");
+        }
+
+        function updateChart(times, prices) {
+            const data = chart.data;
+
+            if (data.datasets.length > 0) {
+
+                data.labels = times.map(t => {
+                    const d = new Date(t * 1000);
+                    const hh = d.getHours().toString().padStart(2, '0');
+                    const mm = d.getMinutes().toString().padStart(2, '0');
+                    return `${hh}:${mm}`;
+                });
+
+                data.datasets[0].data = prices;
+                chart.update();
+            }
+        }
+
+        function updateFrozen(frozen) {
+            document.getElementById("frozen-label").style.display = frozen ? "block" : "none";
+        }
+
+        const tradeLog = document.getElementById("trade-log");
+        const TRADE_LOG_FILE = "static/trade_log.txt";
+        const MAX_TRADES = 27;
+
+        async function loadTradeLog() {
+            const response = await fetch(`${TRADE_LOG_FILE}?t=${performance.now()}`, {
+                cache: "no-store"
+            });
+            const text = await response.text();
+            const lines = text.trim().split("\n");
+
+            tradeLog.innerHTML = "";
+
+            const recentLines = lines.slice(-MAX_TRADES);
+
+            recentLines.forEach(line => {
+                const parts = line.trim().split(",");
+                if (parts.length < 3) return;
+
+                const [epochStr, pdmStr, priceStr] = parts;
+                const epoch = parseFloat(epochStr);
+                const pdm = parseFloat(pdmStr);
+                const price = parseFloat(priceStr);
+
+                addTradeEntryFromFile(epoch, pdm, price);
+            });
+        }
+
+        function addTradeEntryFromFile(time, pdm, price) {
+            const pdmInt = Math.floor(Math.abs(pdm));
+            const entry = document.createElement("div");
+            const buy = pdm > 0;
+            entry.className = "depth-entry " + (buy ? "depth-bid" : "depth-ask");
+
+            const date = new Date(parseFloat(time) * 1000);
+            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            // const exchangeStr = buy ? "BUY" : "SELL";
+            const exchangeStr = buy ? "<span style='color:#32ff87;'>BUY</span>" : "<span style='color:#ff4e4e;'>SELL</span>";
+
+            entry.innerHTML = `
+        <span class="trade-time">${timeStr} ${exchangeStr}</span>
+        <span class="trade-values">
+            ${pdmInt} @ ${parseFloat(price).toFixed(2)}
+        </span>`;
+
+            tradeLog.prepend(entry);
+        }
+
+    </script>
+
+    <script>
+        const tickerLines = [
+            "• REVENUE OUTLOOK: COMPANIES EXPECTED TO SELL THINGS IN EXCHANGE FOR MONEY •",
+            "• BREAKING: CHART GOES UP, THEN DOWN, CONFIRMING LONG-HELD SUSPICIONS •",
+            "• ECONOMIC FORECAST: FUTURE EXPECTED TO CONTINUE HAPPENING •",
+            "• CRIME RATES DROP AFTER CRIME IS DEEMED ILLEGAL BY THE GOVERNMENT •",
+            "• EXPERTS OPINION: WHEN LOSING MONEY, DOUBLE DOWN TO EARN IT BACK •",
+            "• INVESTMENT RESEARCH: BUY LOW, SELL HIGH STILL CONSIDERED GOOD ADVICE •",
+            "• EXPERTS ADVICE: 100% OF PEOPLE WHO SELL, MAKE MONEY •",
+            "• ANALYSIS SHOWS CORRELATION BETWEEN THINGS HAPPENING AND PEOPLE REACTING •",
+            "• EXPERTS DISCOVER THAT THERE IS A LOT OF MONEY IN THE WORLD •",
+            "• BREAKING: DATA SCIENTISTS PREDICT MARKET WITH 91% (±95%) ACCURACY •",
+            "• EXPERT ANALYSIS: TRADING WORKS 50% OF THE TIME, ALL THE TIME •",
+            "• ECONOMIC THEORY: THE VALUE OF A SILVER REMAINS CONSISTENTLY AT ONE SILVER •",
+            "• ANALYSTS CONCLUDE INVESTING MONEY IS THE BEST WAY TO ACQUIRE MORE MONEY •",
+            "• BREAKING: LOCAL STOCK EXCHANGE FOUND TO BE FULL OF STOCKS •",
+            "• EXPERTS CONCLUDE GRAPH GOING TO THE RIGHT, AS TIME CONTINUES •",
+            "• BREAKING: THE SECRET TO WEALTH IS HAVING MORE MONEY THAN EVERYONE ELSE •",
+            "• ECONOMIC THEORY: MONEY IS JUST PAPER THAT WE ALL AGREED IS IMPORTANT •",
+            "• ANALYSIS: 100% OF THE TIME, THERE IS A 50% CHANCE PRICE GOES UP •",
+            "• EXPERTS OPINION: EVERYONE BUY, SO I CAN SELL •",
+            "• MARKET TREND: PRICES EXPECTED TO BE AN ELEMENT OF THE REAL NUMBERS •",
+            "• ANALYSIS SHOWS AN INVESTMENT THAT DOUBLES IS WORTH MORE THAN ONE THAT HALVES •",
+            "• EXPERTS CONCLUDE: PEOPLE ARE SURPRISED WHEN UNEXPECTED THINGS HAPPEN •"
+        ];
+
+        let idx = 0;
+        const tickerEl = document.getElementById("tickerText");
+
+        // Start with the first line
+        tickerEl.textContent = tickerLines[idx];
+
+        // Detect when the animation finishes one full run
+        tickerEl.addEventListener("animationiteration", () => {
+            idx = (idx + 1) % tickerLines.length;
+            tickerEl.textContent = tickerLines[idx];
+        });
+    </script>
+
+
+</body>
+
+<div id="frozen-label" style="
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-90%, -50%);
+    font-size: 120px;
+    color: rgba(255, 0, 0, 0.4);
+    font-weight: 900;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+">FROZEN</div>
+
+</html>

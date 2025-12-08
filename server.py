@@ -36,6 +36,10 @@ class MarketEngine:
     def __init__(self):
         self.times = list()
         self.prices = list()
+
+        self.mu = 0
+        self.sigma = BASE_SIGMA
+
         self.event = Event.make_empty()  # only one event at a time
 
         self.frozen = False
@@ -82,7 +86,7 @@ class MarketEngine:
                 self.append(time, price)
 
     def updatePrice(self, time, price):
-        mu = 0
+        mu = self.mu
         if self.allow_return:
             if price > MAX_PRICE:
                 self.returning = -1
@@ -93,7 +97,7 @@ class MarketEngine:
             if self.returning < 0 and price < BASE_PRICE:
                 self.returning = 0
             mu += self.returning * MU_RETURN
-        noise_factor = random.gauss(mu, BASE_SIGMA)
+        noise_factor = random.gauss(mu, self.sigma)
         price *= (1 + noise_factor)
 
         price = self.event.updatePrice(price)
@@ -128,6 +132,8 @@ class MarketEngine:
         return {
             "times": self.times,
             "prices": self.prices,
+            "mu": self.mu,
+            "sigma": self.sigma,
             "frozen": self.frozen,
             "allow_return": self.allow_return,
             "returning": self.returning,
@@ -185,8 +191,8 @@ class Event:
 
 
 EVENTS = {
-    "coffee": Event("coffee", start_tick=3, dticks=5, max_mu=-0.1),
-    "grant": Event("grant", start_tick=3, dticks=5, max_mu=0.1),
+    "coffee": Event("coffee", start_tick=3, dticks=10, max_mu=-0.2),
+    "grant": Event("grant", start_tick=3, dticks=10, max_mu=0.2),
 }
 
 # ----------------------------- WebSocket Manager -------------------------
@@ -265,6 +271,15 @@ async def websocket_endpoint(websocket: WebSocket):
                 event = EVENTS[msg.get("event")]
                 engine.queue_event(event)
 
+            if mtype == "mu":
+                engine.mu = msg.get("mu")
+
+            if mtype == "sigma":
+                sigma = msg.get("sigma")
+                if sigma <= 0:
+                    sigma = BASE_SIGMA
+                engine.sigma = sigma
+
     except Exception:
         pass
     finally:
@@ -313,3 +328,12 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(broadcaster_loop())
     loop.run_until_complete(server.serve())
+
+
+"""
+- add low/high ints for pdm selling
+- add up/down button for manual control
+- set price to global stock of silver/pdm -> problem buy/sell is nonlinear?
+- operator/ add max/min exchange to fail the market, for me to see and not break the market
+- make sure net price change = 0 for many exchanges!!!!!
+"""

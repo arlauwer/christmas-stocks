@@ -5,344 +5,531 @@
     <meta charset="UTF-8">
     <title>Per Diem Exchange - Operator Panel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <style>
+        :root {
+            --bg-primary: #0b0e11;
+            --bg-secondary: #111722;
+            --border-color: #1f2530;
+            --border-accent: #1f2937;
+            --text-primary: #cbd5e1;
+            --text-secondary: #9ca3af;
+            --price-up: #32ff87;
+            --price-down: #ff4e4e;
+            --btn-primary: #32ff87;
+            --btn-danger: #c40000;
+            --btn-success: #10b981;
+            --input-bg: #1f2937;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f3f4f6;
+            --bg-secondary: #ffffff;
+            --border-color: #e5e7eb;
+            --border-accent: #d1d5db;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --price-up: #059669;
+            --price-down: #dc2626;
+            --btn-primary: #059669;
+            --btn-danger: #dc2626;
+            --btn-success: #10b981;
+            --input-bg: #f9fafb;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             height: 100vh;
             display: flex;
             flex-direction: column;
-            font-family: "Inter", sans-serif;
-            background: #0b0e11;
-            color: #cbd5e1;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
         }
 
+        /* ========== Header ========== */
         #header {
-            background: #111722;
-            padding: 12px 16px;
-            border-bottom: 2px solid #1f2937;
+            background: var(--bg-secondary);
+            padding: 16px 20px;
+            border-bottom: 2px solid var(--border-accent);
             font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
+        #theme-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        #theme-toggle:hover {
+            border-color: var(--btn-primary);
+            color: var(--btn-primary);
+        }
+
+        /* ========== Main Layout ========== */
         #main {
             flex: 1;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            padding: 12px;
+            gap: 16px;
+            padding: 16px;
+            overflow-y: auto;
         }
 
+        @media (max-width: 768px) {
+            #main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ========== Panel Styling ========== */
         .panel {
-            background: #111722;
-            border: 1px solid #1f2530;
-            border-radius: 10px;
-            padding: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
             display: flex;
             flex-direction: column;
-            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .panel h2 {
-            margin-top: 0;
-            margin-bottom: 16px;
-            font-size: 22px;
-            color: #9ca3af;
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ========== Price Display ========== */
+        #price-panel {
+            align-items: center;
+            justify-content: center;
         }
 
         #live-price {
-            font-size: 64px;
+            font-size: 72px;
             font-weight: 700;
-            color: #32ff87;
-            text-shadow: 0 0 18px rgba(50, 255, 135, 0.4);
+            color: var(--price-up);
+            text-shadow: 0 0 18px currentColor;
+            margin-bottom: 8px;
+            transition: color 0.3s;
         }
 
         #live-price.down {
-            color: #ff4e4e;
-            text-shadow: 0 0 18px rgba(255, 78, 78, 0.4);
+            color: var(--price-down);
+        }
+
+        #change {
+            font-size: 20px;
+            color: var(--text-secondary);
+        }
+
+        /* ========== Controls ========== */
+        .control-section {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .control-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .control-section h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .control-group {
             display: flex;
-            margin-bottom: 12px;
+            gap: 8px;
+            margin-bottom: 8px;
         }
 
         .control-group input {
             flex: 1;
-            padding: 6px;
-            border-radius: 6px;
-            border: none;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: var(--text-primary);
             font-size: 16px;
-            margin-right: 8px;
+            transition: border-color 0.2s;
         }
 
-        .control-group button {
-            padding: 6px 12px;
-            border-radius: 6px;
+        .control-group input:focus {
+            outline: none;
+            border-color: var(--btn-primary);
+        }
+
+        .preview-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            min-height: 20px;
+            padding-left: 4px;
+        }
+
+        /* ========== Buttons ========== */
+        button {
+            padding: 10px 16px;
+            border-radius: 8px;
             border: none;
             cursor: pointer;
             font-size: 16px;
-            background: #32ff87;
-            color: #0b0e11;
             font-weight: 600;
+            transition: all 0.2s;
+            white-space: nowrap;
         }
 
-        #freeze-btn {
-            background: #c40000;
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
-        #return-btn {
-            background: #32ff87;
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
+        button:active {
+            transform: translateY(0);
         }
 
-        .event-btn {
-            background: #32ff87;
+        .btn-primary {
+            background: var(--btn-primary);
             color: white;
-            border: none;
-            padding: 8px 14px;
+        }
+
+        .btn-danger {
+            background: var(--btn-danger);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--btn-success);
+            color: white;
+        }
+
+        .btn-full {
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .info-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            padding: 8px;
+            background: var(--input-bg);
             border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .event-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
         }
     </style>
 </head>
 
 <body>
-
-    <div id="header">Per Diem Exchange - Operator Panel</div>
+    <div id="header">
+        <span>Per Diem Exchange - Operator Panel</span>
+        <button id="theme-toggle">Toggle Theme</button>
+    </div>
 
     <div id="main">
-
-        <!-- Price Display -->
+        <!-- Price Display Panel -->
         <div class="panel" id="price-panel">
             <h2>Current Price</h2>
-            <div id="live-price">10</div>
+            <div id="live-price">10.00</div>
             <div id="change">+0.00 (0.00%)</div>
         </div>
 
-        <!-- Controls -->
-        <div class="panel" id="controls">
+        <!-- Controls Panel -->
+        <div class="panel">
             <h2>Trading Controls</h2>
 
-            <div class="control-group">
-                <input type="number" id="buy-amount" placeholder="Silver Amount">
-                <button id="buy-btn">Buy</button>
+            <!-- Buy Section -->
+            <div class="control-section">
+                <h3>Buy PDM</h3>
+                <div class="control-group">
+                    <input type="number" id="buy-amount" placeholder="Enter Silver Amount" step="0.01" min="0">
+                    <button id="buy-btn" class="btn-primary">Buy</button>
+                </div>
+                <div id="buy-preview" class="preview-text"></div>
             </div>
-            <div id="buy-preview" style="margin-bottom: 12px; font-size: 18px; color:#9ca3af;"></div>
 
-            <div class="control-group">
-                <input type="number" id="sell-amount" placeholder="PDM Amount">
-                <button id="sell-btn">Sell</button>
+            <!-- Sell Section -->
+            <div class="control-section">
+                <h3>Sell PDM</h3>
+                <div class="control-group">
+                    <input type="number" id="sell-amount" placeholder="Enter PDM Amount" step="0.01" min="0">
+                    <button id="sell-btn" class="btn-primary">Sell</button>
+                </div>
+                <div id="sell-preview" class="preview-text"></div>
             </div>
-            <div id="sell-preview" style="margin-bottom: 12px; font-size: 18px; color:#9ca3af;"></div>
 
-            <button id="freeze-btn">
-                Freeze Market
-            </button>
+            <!-- Market Controls -->
+            <div class="control-section">
+                <h3>Market Controls</h3>
+                <button id="freeze-btn" class="btn-danger btn-full">Freeze Market</button>
+                <button id="return-btn" class="btn-success btn-full">Allow Return</button>
+                <div id="return-info" class="info-text"></div>
+            </div>
 
-            <button id="return-btn">
-                Allow Return
-            </button>
+            <!-- Event Controls -->
+            <div class="control-section">
+                <h3>Event Controls</h3>
+                <div class="event-buttons">
+                    <button id="coffee-btn" class="btn-primary">Fire Coffee</button>
+                    <button id="grant-btn" class="btn-primary">Fire Grant</button>
+                </div>
+                <div id="event-info" class="info-text"></div>
+            </div>
 
-            <span id="return-info"></span>
-
-            <span id="event-info"></span>
-
-            <button class="event⁻btn" id="coffee-btn">
-                Fire 'Coffee'event
-            </button>
-
-            <button class="event⁻btn" id="grant-btn">
-                Fire 'Grant'event
-            </button>
-
-
+            <!-- Mu Controls -->
+            <div class="control-section">
+                <h3>Mu</h3>
+                <div id="current-mu">0.00</div>
+                <input type="number" id="mu-input" placeholder="Enter Mu">
+                <h3>Sigma</h3>
+                <div id="current-sigma">0.00</div>
+                <input type="number" id="sigma-input" placeholder="Enter Sigma">
+            </div>
         </div>
-
     </div>
 
     <script>
+        // ========== State Variables ==========
         let price = 10;
-
-        const buyBtn = document.getElementById("buy-btn");
-        const buyInput = document.getElementById("buy-amount");
-        const buyPreview = document.getElementById("buy-preview");
         let buyPrice = 0;
-
-        const sellBtn = document.getElementById("sell-btn");
-        const sellInput = document.getElementById("sell-amount");
-        const sellPreview = document.getElementById("sell-preview");
         let sellPrice = 0;
 
-        const freezeBtn = document.getElementById("freeze-btn");
-        const returnBtn = document.getElementById("return-btn");
-        const returnInfo = document.getElementById("return-info");
+        // ========== DOM Elements ==========
+        const elements = {
+            buyBtn: document.getElementById("buy-btn"),
+            buyInput: document.getElementById("buy-amount"),
+            buyPreview: document.getElementById("buy-preview"),
+            sellBtn: document.getElementById("sell-btn"),
+            sellInput: document.getElementById("sell-amount"),
+            sellPreview: document.getElementById("sell-preview"),
+            freezeBtn: document.getElementById("freeze-btn"),
+            returnBtn: document.getElementById("return-btn"),
+            returnInfo: document.getElementById("return-info"),
+            eventInfo: document.getElementById("event-info"),
+            coffeeBtn: document.getElementById("coffee-btn"),
+            grantBtn: document.getElementById("grant-btn"),
+            currentMu: document.getElementById("current-mu"),
+            muInput: document.getElementById("mu-input"),
+            currentSigma: document.getElementById("current-sigma"),
+            sigmaInput: document.getElementById("sigma-input"),
+            themeToggle: document.getElementById("theme-toggle")
+        };
 
-        // Event Buttons
-        const eventInfo = document.getElementById("event-info");
-        const coffeeBtn = document.getElementById("coffee-btn");
-        const grantBtn = document.getElementById("grant-btn");
-
+        // ========== WebSocket Connection ==========
         const socket = new WebSocket("ws://" + window.location.host + "/ws");
 
-        socket.onmessage = async (event) => {
+        socket.onmessage = (event) => {
             const msg = JSON.parse(event.data);
-            if (msg.type === "engine")
+            if (msg.type === "engine") {
                 update(msg.engine);
+            }
         };
 
-        socket.onopen = async (event) => {
+        socket.onopen = () => {
+            console.log("WebSocket connected");
         };
 
-        /* ---------- Update Functions ---------- */
+        socket.onerror = (error) => {
+            console.error("WebSocket error:", error);
+        };
 
+        // ========== Update Functions ==========
         function update(engine) {
-            const times = engine.times;
-            const prices = engine.prices;
-            const frozen = engine.frozen;
-            const allowReturn = engine.allow_return;
-            const returning = engine.returning;
-            const event = engine.event;
-
-            updatePrice(prices);
-            updateFrozenBtn(frozen);
-            updateReturnBtn(allowReturn, returning);
-
-            updateEventInfo(event);
-
-
-            // comment these to disable dynamic price updates //
-            // updateBuyPreview();
-            // updateSellPreview();
+            updatePrice(engine.prices);
+            updateFrozenBtn(engine.frozen);
+            updateReturnBtn(engine.allow_return, engine.returning);
+            updateEventInfo(engine.event);
+            updateGauss(engine.mu, engine.sigma);
         }
 
         function updatePrice(prices) {
+            if (!prices || prices.length === 0) return;
+
+            const prevPrice = prices.length > 1 ? prices[prices.length - 2] : prices[0];
             price = prices[prices.length - 1];
-            if (prices.length > 1) {
-                prevPrice = prices[prices.length - 2];
-            } else {
-                prevPrice = price;
-            }
 
             const priceEl = document.getElementById("live-price");
             const changeEl = document.getElementById("change");
             const diff = price - prevPrice;
-            const pct = (diff / prevPrice) * 100;
+            const pct = prevPrice !== 0 ? (diff / prevPrice) * 100 : 0;
 
             priceEl.textContent = price.toFixed(2);
             changeEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)} (${pct.toFixed(2)}%)`;
 
-            if (diff >= 0) priceEl.classList.remove("down");
-            else priceEl.classList.add("down");
+            priceEl.classList.toggle("down", diff < 0);
         }
 
         function updateBuyPreview() {
-            const silver = parseFloat(buyInput.value);
+            const silver = parseFloat(elements.buyInput.value);
             if (!isNaN(silver) && silver > 0) {
                 buyPrice = price;
                 const pdm = silver * price;
-                const pdfmInt = Math.floor(pdm);
-                buyPreview.textContent = `${pdm.toFixed(4)} (${pdfmInt}) PDM`;
+                const pdmInt = Math.floor(pdm);
+                elements.buyPreview.textContent = `≈ ${pdm.toFixed(4)} PDM (${pdmInt} whole)`;
             } else {
-                buyPreview.textContent = "";
+                elements.buyPreview.textContent = "";
             }
         }
 
         function updateSellPreview() {
-            const pdm = parseFloat(sellInput.value);
+            const pdm = parseFloat(elements.sellInput.value);
             if (!isNaN(pdm) && pdm > 0) {
                 sellPrice = price;
                 const silver = pdm / price;
                 const silverInt = Math.floor(silver);
-                sellPreview.textContent = `${silver.toFixed(2)} (${silverInt}) Silver`;
+                elements.sellPreview.textContent = `≈ ${silver.toFixed(2)} Silver (${silverInt} whole)`;
             } else {
-                sellPreview.textContent = "";
+                elements.sellPreview.textContent = "";
             }
         }
 
         function updateFrozenBtn(frozen) {
-            freezeBtn.textContent = frozen ? "Unfreeze Market" : "Freeze Market";
-            freezeBtn.style.backgroundColor = frozen ? "red" : "green";
+            elements.freezeBtn.textContent = frozen ? "Unfreeze Market" : "Freeze Market";
+            elements.freezeBtn.className = frozen ? "btn-success btn-full" : "btn-danger btn-full";
         }
 
         function updateReturnBtn(allowReturn, returning) {
-            returnBtn.textContent = allowReturn ? "Disallow Return" : "Allow Return";
-            returnBtn.style.backgroundColor = allowReturn ? "green" : "red";
+            elements.returnBtn.textContent = allowReturn ? "Disallow Return" : "Allow Return";
+            elements.returnBtn.className = allowReturn ? "btn-danger btn-full" : "btn-success btn-full";
+
             if (allowReturn) {
-                if (returning > 0)
-                    returnInfo.textContent = `Returning up`;
-                else if (returning < 0)
-                    returnInfo.textContent = `Returning down`;
-                else
-                    returnInfo.textContent = `Not returning`;
+                if (returning > 0) {
+                    elements.returnInfo.textContent = "📈 Returning up";
+                } else if (returning < 0) {
+                    elements.returnInfo.textContent = "📉 Returning down";
+                } else {
+                    elements.returnInfo.textContent = "⏸️ Not returning";
+                }
             } else {
-                returnInfo.textContent = "Not allowed to return";
+                elements.returnInfo.textContent = "🚫 Return not allowed";
             }
         }
 
         function updateEventInfo(event) {
-            if (event.finished) {
-                eventInfo.textContent = "No event";
+            if (!event || event.finished) {
+                elements.eventInfo.textContent = "No active event";
             } else {
-                name = event.name;
-                tick = event.tick;
-                dticks = event.dticks;
-                maxMu = event.max_mu;
-                priority = event.priority;
-
-                eventInfo.textContent = `${name}: ${tick}/${dticks} ; max_mu=${maxMu} ; priority=${priority}`;
+                elements.eventInfo.textContent =
+                    `${event.name}: ${event.tick}/${event.dticks} | max_mu=${event.max_mu} | priority=${event.priority}`;
             }
-
         }
 
-        /* ---------- Event Listeners ---------- */
+        function updateGauss(mu, sigma) {
+            elements.currentMu.textContent = mu.toFixed(2);
+            elements.currentSigma.textContent = sigma.toFixed(4);
+        }
 
-        buyBtn.onclick = () => {
-            const silver = parseFloat(buyInput.value);
+        // ========== Event Handlers ==========
+        function sendWebSocketMessage(data) {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(data));
+            } else {
+                console.error("WebSocket not connected");
+            }
+        }
+
+        elements.buyBtn.onclick = () => {
+            const silver = parseFloat(elements.buyInput.value);
             const pdm = silver * buyPrice;
             if (!isNaN(silver) && silver > 0) {
-                socket.send(JSON.stringify({ "type": "exchange", "pdm": pdm, "displayPrice": buyPrice }));
+                sendWebSocketMessage({ type: "exchange", pdm: pdm, displayPrice: buyPrice });
+                elements.buyInput.value = "";
+                updateBuyPreview();
             }
-            buyInput.value = "";
-            updateBuyPreview();
         };
 
-        sellBtn.onclick = () => {
-            const pdm = parseFloat(sellInput.value);
+        elements.sellBtn.onclick = () => {
+            const pdm = parseFloat(elements.sellInput.value);
             if (!isNaN(pdm) && pdm > 0) {
-                socket.send(JSON.stringify({ "type": "exchange", "pdm": -pdm, "displayPrice": sellPrice }));
+                sendWebSocketMessage({ type: "exchange", pdm: -pdm, displayPrice: sellPrice });
+                elements.sellInput.value = "";
+                updateSellPreview();
             }
-            sellInput.value = "";
-            updateSellPreview();
         };
 
-        buyInput.addEventListener("input", updateBuyPreview);
-        sellInput.addEventListener("input", updateSellPreview);
-        freezeBtn.addEventListener("click", () => {
-            socket.send(JSON.stringify({ "type": "freeze" }));
+        elements.freezeBtn.onclick = () => {
+            sendWebSocketMessage({ type: "freeze" });
+        };
+
+        elements.returnBtn.onclick = () => {
+            sendWebSocketMessage({ type: "allow-return" });
+        };
+
+        elements.coffeeBtn.onclick = () => {
+            sendWebSocketMessage({ type: "event", event: "coffee" });
+        };
+
+        elements.grantBtn.onclick = () => {
+            sendWebSocketMessage({ type: "event", event: "grant" });
+        };
+
+        // Theme toggle
+        elements.themeToggle.onclick = () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? '' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        };
+
+        // Input event listeners
+        elements.buyInput.addEventListener("input", updateBuyPreview);
+        elements.sellInput.addEventListener("input", updateSellPreview);
+        elements.muInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                const mu = parseFloat(elements.muInput.value);
+                if (!isNaN(mu) && -1 < mu && mu < 1) {
+                    sendWebSocketMessage({ type: "mu", mu: mu });
+                } else {
+                    sendWebSocketMessage({ type: "mu", mu: 0 });
+                }
+            }
         });
-        returnBtn.addEventListener("click", () => {
-            socket.send(JSON.stringify({ "type": "allow-return" }));
-        });
-        coffeeBtn.addEventListener("click", () => {
-            socket.send(JSON.stringify({ "type": "event", "event": "coffee" }));
+        elements.sigmaInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                const sigma = parseFloat(elements.sigmaInput.value);
+                if (!isNaN(sigma) && 0.0001 <= sigma && sigma <= 0.2) {
+                    sendWebSocketMessage({ type: "sigma", sigma: sigma });
+                } else {
+                    sendWebSocketMessage({ type: "sigma", sigma: 0.0 });
+                }
+            }
         });
 
-        grantBtn.addEventListener("click", () => {
-            socket.send(JSON.stringify({ "type": "event", "event": "grant" }));
-        });
-
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
     </script>
 </body>
 

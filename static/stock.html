@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <style>
+        /* ========== CSS Variables ========== */
         :root {
             --font-ticker: 24px;
             --font-panel-title: 28px;
@@ -14,41 +15,71 @@
             --font-change: 32px;
             --font-trade-log-header: 26px;
             --font-trade-entry: 22px;
-            --font-frozen-label: 140px;
+            --font-frozen-label: 120px;
+
+            /* Dark Theme */
+            --bg-primary: #0b0e11;
+            --bg-secondary: #111722;
+            --border-color: #1f2530;
+            --border-accent: #1f2937;
+            --text-primary: #cbd5e1;
+            --text-secondary: #9ca3af;
+            --price-up: #32ff87;
+            --price-down: #ff4e4e;
+            --shadow-color: rgba(0, 0, 0, 0.35);
+            /* CHANGE THIS SINCE THE LIGHT-THEME COLOR DOESNT WORK */
+            /* --chart-grid: rgba(255, 255, 255, 0.3); */
+            --chart-grid: rgba(0, 0, 0, 0.3);
         }
 
+        [data-theme="light"] {
+            --bg-primary: #f3f4f6;
+            --bg-secondary: #ffffff;
+            --border-color: #e5e7eb;
+            --border-accent: #d1d5db;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --price-up: #059669;
+            --price-down: #dc2626;
+            --shadow-color: rgba(0, 0, 0, 0.35);
+            --chart-grid: rgba(0, 0, 0, 0.3);
+        }
 
-        /* ---------- THEME ---------- */
+        /* ========== Base Styles ========== */
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             height: 100vh;
             display: flex;
             flex-direction: column;
-            font-family: "Inter", sans-serif;
-            background: #0b0e11;
-            color: #cbd5e1;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
         }
 
-        /* ---------- TICKER ---------- */
+        /* ========== Ticker ========== */
         #ticker {
             width: 100%;
-            background: #111722;
-            border-bottom: 2px soid #1f2937;
-            color: #9ca3af;
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--border-accent);
+            color: var(--text-secondary);
             padding: 8px;
             font-size: var(--font-ticker);
-            min-height: 20px;
-            line-height: 1;
+            min-height: 48px;
+            line-height: 1.5;
             white-space: nowrap;
             overflow: hidden;
-            box-sizing: border-box;
             display: flex;
             align-items: center;
         }
 
         .ticker-inner {
             display: inline-block;
-            animation: marquee 18s linear infinite;
+            animation: marquee 20s linear infinite;
             white-space: nowrap;
         }
 
@@ -58,360 +89,494 @@
             }
 
             100% {
-                transform: translateX(-60vw);
+                transform: translateX(-100%);
             }
         }
 
-
-        /* ---------- LAYOUT GRID ---------- */
+        /* ========== Layout Grid ========== */
         #main {
             flex: 1 1 auto;
             min-height: 0;
             display: grid;
             grid-template-columns: 3fr 1fr;
-            gap: 12px;
-            padding: 12px;
-            box-sizing: border-box;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        @media (max-width: 1024px) {
+            #main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ========== Panel Styles ========== */
+        .panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 6px var(--shadow-color);
         }
 
         .panel-title {
             font-size: var(--font-panel-title);
-            color: #9ca3af;
+            font-weight: 700;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            margin-bottom: 12px;
         }
 
-
-        .panel {
-            background: #111722;
-            border: 1px solid #1f2530;
-            border-radius: 10px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35);
-        }
-
-        /* ---------- PRICE BOARD ---------- */
+        /* ========== Price Panel ========== */
         #price-panel {
-            font-size: var(--font-price);
+            position: relative;
+        }
+
+        .price-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .price-info {
+            flex: 1;
         }
 
         #live-price {
             font-size: var(--font-price);
             font-weight: 700;
-            color: #32ff87;
-            text-shadow: 0 0 18px rgba(50, 255, 135, 0.4);
+            color: var(--price-up);
+            text-shadow: 0 0 20px currentColor;
+            transition: color 0.3s, text-shadow 0.3s;
+            line-height: 1;
+            margin: 8px 0;
         }
 
         #live-price.down {
-            color: #ff4e4e;
-            text-shadow: 0 0 18px rgba(255, 78, 78, 0.4);
+            color: var(--price-down);
         }
 
         #change {
             font-size: var(--font-change);
-            margin-top: 6px;
+            font-weight: 600;
+            color: var(--text-secondary);
         }
 
-        /* ---------- CHART PANEL ---------- */
+        .logo-placeholder {
+            height: 80px;
+            opacity: 0.2;
+            margin-left: 20px;
+        }
+
+        /* ========== Chart ========== */
         #chart {
             flex: 1;
-            background: #111722;
-            border: 1px solid #1a2230;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            margin-top: 12px;
+            margin-top: 16px;
+            padding: 8px;
         }
 
-        /* ---------- TRADE ---------- */
-
-        .depth-entry {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            font-size: var(--font-trade-entry);
-        }
-
-        .trade-time {
-            font-family: "JetBrains Mono", monospace;
-            color: #9ca3af;
-        }
-
-        .trade-values {
-            font-family: "Inter", sans-serif;
-            font-weight: 600;
-            color: #cbd5e1;
-        }
-
-        .depth-bid .trade-values {
-            color: #32ff87;
-        }
-
-        .depth-ask .trade-values {
-            color: #ff4e4e;
-        }
-
+        /* ========== Trade Log ========== */
         .trade-log-header {
             font-size: var(--font-trade-log-header);
             font-weight: 600;
-            margin-bottom: 12px;
-            padding: 8px 12px;
-            background-color: #111722;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: var(--bg-primary);
+            border-radius: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .trade-log-header .label {
-            font-family: "JetBrains Mono", monospace;
-            border: none;
-            color: #32ff87;
+            font-family: "JetBrains Mono", "Courier New", monospace;
+            color: var(--price-up);
+            font-weight: 700;
         }
 
         .trade-log-header .columns {
             font-family: "Inter", sans-serif;
-            color: #cbd5e1;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        #trade-log {
+            flex: 1;
+            overflow-y: hidden;
+            padding-right: 8px;
+        }
+
+        .depth-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            font-size: var(--font-trade-entry);
+            border-radius: 6px;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+        }
+
+        .depth-entry:hover {
+            background: var(--bg-primary);
+        }
+
+        .trade-time {
+            font-family: "JetBrains Mono", "Courier New", monospace;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .trade-values {
+            font-family: "Inter", sans-serif;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .depth-bid .trade-values {
+            color: var(--price-up);
+        }
+
+        .depth-ask .trade-values {
+            color: var(--price-down);
+        }
+
+        .buy-label {
+            color: var(--price-up);
+            font-weight: 700;
+        }
+
+        .sell-label {
+            color: var(--price-down);
+            font-weight: 700;
+        }
+
+        /* ========== Frozen Overlay ========== */
+        #frozen-label {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: var(--font-frozen-label);
+            color: rgba(220, 38, 38, 0.4);
+            font-weight: 900;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            text-shadow: 0 0 40px rgba(220, 38, 38, 0.6);
+            letter-spacing: 8px;
+        }
+
+        [data-theme="light"] #frozen-label {
+            color: rgba(220, 38, 38, 0.5);
+            text-shadow: 0 0 30px rgba(220, 38, 38, 0.4);
+        }
+
+        /* ========== Theme Toggle (Hidden) ========== */
+        #theme-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 999;
+            transition: all 0.3s;
+            opacity: 0.7;
+        }
+
+        #theme-toggle:hover {
+            opacity: 1;
+            border-color: var(--price-up);
+            transform: translateY(-2px);
         }
     </style>
 </head>
 
 <body>
-
     <!-- Ticker -->
     <div id="ticker">
         <div class="ticker-inner" id="tickerText"></div>
     </div>
 
-
-    <!-- Main grid -->
+    <!-- Main Content Grid -->
     <div id="main">
-
-        <!-- Price panel -->
+        <!-- Price Panel -->
         <div class="panel" id="price-panel">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
+            <div class="price-header">
+                <div class="price-info">
                     <div class="panel-title">PER DIEM (PDM)</div>
-                    <div id="live-price">10</div>
+                    <div id="live-price">10.00</div>
                     <div id="change">+0.00 (0.00%)</div>
                 </div>
-                <img src="" style="height:80px; opacity:0.2;">
+                <img src="" class="logo-placeholder" alt="">
             </div>
-
-            <!-- <canvas id="chart"></canvas> -->
             <canvas id="chart"></canvas>
         </div>
 
-        <!-- Trade Log -->
+        <!-- Trade Log Panel -->
         <div class="panel">
             <div class="trade-log-header">
-                <span class="label">Trade Log:</span>
+                <span class="label">TRADE LOG</span>
                 <span class="columns">PDM @ PRICE</span>
             </div>
-            <div id="trade-log">
-                <!-- New entries will be prepended here -->
-            </div>
+            <div id="trade-log"></div>
         </div>
-
     </div>
 
+    <!-- Frozen Market Overlay -->
+    <div id="frozen-label">FROZEN</div>
+
+    <!-- Theme Toggle Button (optional, can be removed) -->
+    <button id="theme-toggle">Toggle Theme</button>
+
+    <!-- Chart.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script>
+        // ========== Chart Configuration ==========
         const ctx = document.getElementById('chart').getContext('2d');
-        const data = {
-            datasets: [
-                {
-                    label: 'PDM',
-                    data: [],
-                    backgroundColor: 'rgba(255, 255, 255, 0.0)',
-                    segment: {
-                        borderColor: ctx => {
-                            return ctx.p1.parsed.y > ctx.p0.parsed.y ? 'green' : 'red';
-                        }
+
+        function cssVar(name) {
+            return getComputedStyle(document.documentElement)
+                .getPropertyValue(name).trim();
+        }
+
+
+        const chartData = {
+            datasets: [{
+                label: 'PDM Price',
+                data: [],
+                backgroundColor: 'rgba(0, 0, 0, 0)',
+                borderWidth: 3,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                tension: 0.1,
+                segment: {
+                    borderColor: ctx => {
+                        return ctx.p1.parsed.y >= ctx.p0.parsed.y
+                            ? getComputedStyle(document.documentElement).getPropertyValue('--price-up').trim()
+                            : getComputedStyle(document.documentElement).getPropertyValue('--price-down').trim();
                     }
                 }
-            ]
+            }]
         };
-        const config = {
+
+        const chartConfig = {
             type: 'line',
-            data: data,
+            data: chartData,
             options: {
+                // responsive: true,
+                // maintainAspectRatio: false,
                 animation: {
-                    duration: 300,         // slide-speed
+                    duration: 300,
                     easing: 'linear',
                     y: { duration: 0 }
                 },
                 plugins: {
-                    legend: {
-                        display: false,
-                        labels: {
-                            font: {
-                                family: 'Inter, sans-serif',  // font family
-                                size: 18,                     // font size in px
-                                weight: '600'                 // font weight
-                            },
-                            color: '#cbd5e1'
+                    legend: { display: false },
+                    title: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 23, 34, 0.95)',
+                        titleColor: '#cbd5e1',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#1f2530',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: (context) => `Price: ${context.parsed.y.toFixed(2)}`
                         }
-                    },
-                    title: {
-                        display: false,
-                        text: 'Price Chart',
-                        font: {
-                            family: 'JetBrains Mono, monospace',
-                            size: 22,
-                            weight: '700'
-                        },
-                        color: '#cbd5e1'
                     }
                 },
                 scales: {
                     x: {
+                        grid: {
+                            // color: 'var(--chart-grid)',
+                            color: cssVar('--chart-grid'),
+                            lineWidth: 1
+                        },
                         ticks: {
                             font: {
                                 family: 'JetBrains Mono, monospace',
-                                size: 16,
-                                weight: '500',
+                                size: 14,
+                                weight: '500'
                             },
-                            color: '#9ca3af',
-                            maxTicksLimit: 20,
-                            minRotation: 45,
-                            autoSkip: true,
+                            // color: 'var(--text-secondary)',
+                            color: cssVar('--text-secondary'),
+                            maxTicksLimit: 15,
+                            autoSkip: true
                         }
                     },
                     y: {
+                        grid: {
+                            // color: 'var(--chart-grid)',
+                            color: cssVar('--chart-grid'),
+                            lineWidth: 1
+                        },
                         ticks: {
                             font: {
                                 family: 'Inter, sans-serif',
-                                size: 16,
-                                weight: '500',
+                                size: 14,
+                                weight: '500'
                             },
-                            color: '#cbd5e1',
+                            // color: 'var(--text-primary)',
+                            color: cssVar('--text-secondary'),
+                            callback: (value) => value.toFixed(2)
                         }
                     }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
                 }
             }
         };
 
-        const chart = new Chart(ctx, config);
+        const chart = new Chart(ctx, chartConfig);
 
-        let socket = new WebSocket("ws://" + window.location.host + "/ws");
+        // ========== WebSocket Connection ==========
+        const socket = new WebSocket("ws://" + window.location.host + "/ws");
 
-        socket.onopen = async (event) => {
-
+        socket.onopen = () => {
+            console.log("WebSocket connected");
         };
 
-        socket.onmessage = async (event) => {
+        socket.onmessage = (event) => {
             const msg = JSON.parse(event.data);
 
-            if (msg.type === "engine")
+            if (msg.type === "engine") {
                 update(msg.engine);
-            if (msg.type == "buy")
-                loadTradeLog()
-            if (msg.type == "sell")
-                loadTradeLog()
+            }
+            if (msg.type === "buy" || msg.type === "sell") {
+                loadTradeLog();
+            }
         };
 
-        function update(engine) {
-            const times = engine.times;
-            const prices = engine.prices;
-            const frozen = engine.frozen;
+        socket.onerror = (error) => {
+            console.error("WebSocket error:", error);
+        };
 
-            updatePrice(prices);
-            updateChart(times, prices);
-            updateFrozen(frozen);
+        // ========== Update Functions ==========
+        function update(engine) {
+            updatePrice(engine.prices);
+            updateChart(engine.times, engine.prices);
+            updateFrozen(engine.frozen);
             loadTradeLog();
         }
 
         function updatePrice(prices) {
-            price = prices[prices.length - 1];
-            if (prices.length > 1) {
-                prevPrice = prices[prices.length - 2];
-            } else {
-                prevPrice = price;
-            }
+            if (!prices || prices.length === 0) return;
+
+            const price = prices[prices.length - 1];
+            const prevPrice = prices.length > 1 ? prices[prices.length - 2] : price;
 
             const priceEl = document.getElementById("live-price");
             const changeEl = document.getElementById("change");
             const diff = price - prevPrice;
-            const pct = (diff / prevPrice) * 100;
+            const pct = prevPrice !== 0 ? (diff / prevPrice) * 100 : 0;
 
             priceEl.textContent = price.toFixed(2);
             changeEl.textContent = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)} (${pct.toFixed(2)}%)`;
 
-            if (diff >= 0) priceEl.classList.remove("down");
-            else priceEl.classList.add("down");
+            priceEl.classList.toggle("down", diff < 0);
         }
 
         function updateChart(times, prices) {
-            const data = chart.data;
+            if (!times || !prices || times.length === 0) return;
 
-            if (data.datasets.length > 0) {
+            const labels = times.map(t => {
+                const d = new Date(t * 1000);
+                const hh = d.getHours().toString().padStart(2, '0');
+                const mm = d.getMinutes().toString().padStart(2, '0');
+                return `${hh}:${mm}`;
+            });
 
-                data.labels = times.map(t => {
-                    const d = new Date(t * 1000);
-                    const hh = d.getHours().toString().padStart(2, '0');
-                    const mm = d.getMinutes().toString().padStart(2, '0');
-                    return `${hh}:${mm}`;
-                });
-
-                data.datasets[0].data = prices;
-                chart.update();
-            }
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = prices;
+            chart.update('none'); // Update without animation for smoother real-time updates
         }
 
         function updateFrozen(frozen) {
             document.getElementById("frozen-label").style.display = frozen ? "block" : "none";
         }
 
+        // ========== Trade Log ==========
         const tradeLog = document.getElementById("trade-log");
         const TRADE_LOG_FILE = "static/trade_log.txt";
-        const MAX_TRADES = 27;
+        const MAX_TRADES = 18;
 
         async function loadTradeLog() {
-            const response = await fetch(`${TRADE_LOG_FILE}?t=${performance.now()}`, {
-                cache: "no-store"
-            });
-            const text = await response.text();
-            const lines = text.trim().split("\n");
+            try {
+                const response = await fetch(`${TRADE_LOG_FILE}?t=${Date.now()}`, {
+                    cache: "no-store"
+                });
 
-            tradeLog.innerHTML = "";
+                if (!response.ok) return;
 
-            const recentLines = lines.slice(-MAX_TRADES);
+                const text = await response.text();
+                const lines = text.trim().split("\n").filter(line => line.trim());
 
-            recentLines.forEach(line => {
-                const parts = line.trim().split(",");
-                if (parts.length < 3) return;
+                tradeLog.innerHTML = "";
 
-                const [epochStr, pdmStr, priceStr] = parts;
-                const epoch = parseFloat(epochStr);
-                const pdm = parseFloat(pdmStr);
-                const price = parseFloat(priceStr);
+                const recentLines = lines.slice(-MAX_TRADES);
 
-                addTradeEntryFromFile(epoch, pdm, price);
-            });
+                recentLines.forEach(line => {
+                    const parts = line.trim().split(",");
+                    if (parts.length < 3) return;
+
+                    const [epochStr, pdmStr, priceStr] = parts;
+                    const epoch = parseFloat(epochStr);
+                    const pdm = parseFloat(pdmStr);
+                    const price = parseFloat(priceStr);
+
+                    if (!isNaN(epoch) && !isNaN(pdm) && !isNaN(price)) {
+                        addTradeEntry(epoch, pdm, price);
+                    }
+                });
+            } catch (error) {
+                console.error("Error loading trade log:", error);
+            }
         }
 
-        function addTradeEntryFromFile(time, pdm, price) {
+        function addTradeEntry(time, pdm, price) {
             const pdmInt = Math.floor(Math.abs(pdm));
             const entry = document.createElement("div");
-            const buy = pdm > 0;
-            entry.className = "depth-entry " + (buy ? "depth-bid" : "depth-ask");
+            const isBuy = pdm > 0;
 
-            const date = new Date(parseFloat(time) * 1000);
-            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-            // const exchangeStr = buy ? "BUY" : "SELL";
-            const exchangeStr = buy ? "<span style='color:#32ff87;'>BUY</span>" : "<span style='color:#ff4e4e;'>SELL</span>";
+            entry.className = `depth-entry ${isBuy ? "depth-bid" : "depth-ask"}`;
+
+            const date = new Date(time * 1000);
+            const timeStr = date.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+
+            const exchangeLabel = isBuy
+                ? '<span class="buy-label">BUY</span>'
+                : '<span class="sell-label">SELL</span>';
 
             entry.innerHTML = `
-        <span class="trade-time">${timeStr} ${exchangeStr}</span>
-        <span class="trade-values">
-            ${pdmInt} @ ${parseFloat(price).toFixed(2)}
-        </span>`;
+                <span class="trade-time">${timeStr} ${exchangeLabel}</span>
+                <span class="trade-values">${pdmInt} @ ${price.toFixed(2)}</span>
+            `;
 
             tradeLog.prepend(entry);
         }
 
-    </script>
-
-    <script>
-        const tickerLines = [
+        // ========== Ticker Messages ==========
+        const tickerMessages = [
             "• REVENUE OUTLOOK: COMPANIES EXPECTED TO SELL THINGS IN EXCHANGE FOR MONEY •",
             "• BREAKING: CHART GOES UP, THEN DOWN, CONFIRMING LONG-HELD SUSPICIONS •",
             "• ECONOMIC FORECAST: FUTURE EXPECTED TO CONTINUE HAPPENING •",
@@ -436,33 +601,40 @@
             "• EXPERTS CONCLUDE: PEOPLE ARE SURPRISED WHEN UNEXPECTED THINGS HAPPEN •"
         ];
 
-        let idx = 0;
-        const tickerEl = document.getElementById("tickerText");
+        let tickerIndex = 0;
+        const tickerElement = document.getElementById("tickerText");
 
-        // Start with the first line
-        tickerEl.textContent = tickerLines[idx];
+        // Initialize with first message
+        tickerElement.textContent = tickerMessages[tickerIndex];
 
-        // Detect when the animation finishes one full run
-        tickerEl.addEventListener("animationiteration", () => {
-            idx = (idx + 1) % tickerLines.length;
-            tickerEl.textContent = tickerLines[idx];
+        // Rotate messages on animation iteration
+        tickerElement.addEventListener("animationiteration", () => {
+            tickerIndex = (tickerIndex + 1) % tickerMessages.length;
+            tickerElement.textContent = tickerMessages[tickerIndex];
         });
+
+        // ========== Theme Toggle ==========
+        const themeToggle = document.getElementById("theme-toggle");
+
+        themeToggle.addEventListener("click", () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? '' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('market-theme', newTheme);
+
+            // Update chart colors
+            chart.update();
+        });
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('market-theme');
+        if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+
+        // Optional: Auto-load trade log on page load
+        loadTradeLog();
     </script>
-
-
 </body>
-
-<div id="frozen-label" style="
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-90%, -50%);
-    font-size: 120px;
-    color: rgba(255, 0, 0, 0.4);
-    font-weight: 900;
-    pointer-events: none;
-    z-index: 1000;
-    display: none;
-">FROZEN</div>
 
 </html>
