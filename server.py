@@ -4,6 +4,7 @@ import asyncio
 import random
 import threading
 import time
+import numpy as np
 
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
@@ -15,13 +16,13 @@ import uvicorn
 HISTORY_FILE = "static/stock.csv"
 TRADE_LOG_FILE = "static/trade_log.txt"
 
-INTERVAL = 1  # interval in seconds, must be a divisor or multiple of 60 (1, 2, 3, 4, 5, 10, 15, 20, 30, 60, 120, ...)
+INTERVAL = 30  # interval in seconds, must be a divisor or multiple of 60 (1, 2, 3, 4, 5, 10, 15, 20, 30, 60, 120, ...)
 BASE_PRICE = 10
 MIN_PRICE = 2  # soft limit, will slowly return to INITIAL_PRICE if exceeded
-MAX_PRICE = 50  # soft limit, will slowly return to INITIAL_PRICE if exceeded
-MU_RETURN = 0.05  # soft return average
-BASE_SIGMA = 0.03  # intrinsic randomness in the price
-EXCHANGE_IMPACT = 0.01  # how much buying/selling affects the price
+MAX_PRICE = 30  # soft limit, will slowly return to INITIAL_PRICE if exceeded
+MU_RETURN = 0.01  # soft return average
+BASE_SIGMA = 0.05  # intrinsic randomness in the price
+EXCHANGE_IMPACT = 0.005  # how much buying/selling affects the price
 APPEND_ON_FREEZE = False  # continue the market but at the same price
 LOAD_FROM_FILE = True  # load the history from the csv
 
@@ -109,8 +110,10 @@ class MarketEngine:
     def exchange(self, pdm, displayPrice):
         with state_lock:
             price = self.price()
-            impact = pdm * EXCHANGE_IMPACT / (1 + price)
-            price *= 1 + impact
+            # impact = pdm * EXCHANGE_IMPACT / (1 + price)
+            # price *= 1 + impact
+
+            price *= np.exp2(EXCHANGE_IMPACT * pdm / price)
 
             self.prices[-1] = price
 
@@ -251,6 +254,9 @@ async def websocket_endpoint(websocket: WebSocket):
             msg = json.loads(raw)
 
             mtype = msg.get("type")
+
+            if mtype == "refresh":
+                await manager.broadcast({"type": "engine", "engine": engine.to_dict()})
 
             if mtype == "exchange":
                 pdm = float(msg.get("pdm", 0))

@@ -449,6 +449,7 @@
 
         socket.onopen = () => {
             console.log("WebSocket connected");
+            socket.send(JSON.stringify({ type: "refresh" }));
         };
 
         socket.onmessage = (event) => {
@@ -559,7 +560,6 @@
             const timeStr = date.toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
-                second: '2-digit',
                 hour12: false
             });
 
