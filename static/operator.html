@@ -299,9 +299,14 @@
             <!-- Event Controls -->
             <div class="control-section">
                 <h3>Event Controls</h3>
-                <div class="event-buttons">
-                    <button id="coffee-btn" class="btn-primary">Fire Coffee</button>
-                    <button id="grant-btn" class="btn-primary">Fire Grant</button>
+                <div class="control-group">
+                    <input type="number" id="event-start" placeholder="Start (ticks)" step="1" min="0">
+                    <input type="number" id="event-duration" placeholder="Duration (ticks)" step="1" min="1">
+                </div>
+                <div class="control-group">
+                    <input type="number" id="event-max-factor" placeholder="Factor" step="0.01">
+                    <button id="fire-event-btn" class="btn-primary">Fire Event</button>
+                    <button id="cancel-event-btn" class="btn-danger">Cancel Event</button>
                 </div>
                 <div id="event-info" class="info-text"></div>
             </div>
@@ -314,6 +319,9 @@
                 <h3>Sigma</h3>
                 <div id="current-sigma">0.00</div>
                 <input type="number" id="sigma-input" placeholder="Enter Sigma">
+                <h3>Exchange Impact</h3>
+                <div id="current-impact">0.0</div>
+                <input type="number" id="impact-input" placeholder="Enter Impact">
             </div>
         </div>
     </div>
@@ -335,13 +343,18 @@
             freezeBtn: document.getElementById("freeze-btn"),
             returnBtn: document.getElementById("return-btn"),
             returnInfo: document.getElementById("return-info"),
+            eventStart: document.getElementById("event-start"),
+            eventDuration: document.getElementById("event-duration"),
+            eventFactor: document.getElementById("event-max-factor"),
             eventInfo: document.getElementById("event-info"),
-            coffeeBtn: document.getElementById("coffee-btn"),
-            grantBtn: document.getElementById("grant-btn"),
+            fireEventBtn: document.getElementById("fire-event-btn"),
+            cancelEventBtn: document.getElementById("cancel-event-btn"),
             currentMu: document.getElementById("current-mu"),
             muInput: document.getElementById("mu-input"),
             currentSigma: document.getElementById("current-sigma"),
             sigmaInput: document.getElementById("sigma-input"),
+            currentImpact: document.getElementById("current-impact"),
+            impactInput: document.getElementById("impact-input"),
             themeToggle: document.getElementById("theme-toggle")
         };
 
@@ -370,7 +383,7 @@
             updateFrozenBtn(engine.frozen);
             updateReturnBtn(engine.allow_return, engine.returning);
             updateEventInfo(engine.event);
-            updateGauss(engine.mu, engine.sigma);
+            updateGauss(engine.mu, engine.sigma, engine.exchange_impact);
         }
 
         function updatePrice(prices) {
@@ -408,7 +421,10 @@
                 sellPrice = price;
                 const silver = pdm / price;
                 const silverInt = Math.floor(silver);
-                elements.sellPreview.textContent = `≈ ${silver.toFixed(2)} Silver (${silverInt} whole)`;
+                // Calculate PDM needed for next silver int change
+                const lowerPdmForNextInt = Math.ceil(silverInt * price);
+                const upperPdmForNextInt = Math.ceil((silverInt + 1) * price);
+                elements.sellPreview.textContent = `≈ ${silver.toFixed(2)} Silver (${silverInt} whole) | Next: ${lowerPdmForNextInt}-${upperPdmForNextInt} PDM`;
             } else {
                 elements.sellPreview.textContent = "";
             }
@@ -441,13 +457,35 @@
                 elements.eventInfo.textContent = "No active event";
             } else {
                 elements.eventInfo.textContent =
-                    `${event.name}: ${event.tick}/${event.dticks} | max_mu=${event.max_mu} | priority=${event.priority}`;
+                    `${event.tick}/${event.dticks} | mu=${event.mu} | factor=${event.factor} `;
             }
         }
 
-        function updateGauss(mu, sigma) {
+        function updateGauss(mu, sigma, impact) {
             elements.currentMu.textContent = mu.toFixed(2);
             elements.currentSigma.textContent = sigma.toFixed(4);
+            elements.currentImpact.textContent = impact.toFixed(4);
+        }
+
+        function buy(updatePreview = true) {
+            const silver = parseFloat(elements.buyInput.value);
+            const pdm = silver * buyPrice;
+            if (!isNaN(silver) && silver > 0) {
+                sendWebSocketMessage({ type: "exchange", pdm: pdm, displayPrice: buyPrice });
+                elements.buyInput.value = "";
+                if (updatePreview)
+                    updateBuyPreview();
+            }
+        }
+
+        function sell(updatePreview = true) {
+            const pdm = parseFloat(elements.sellInput.value);
+            if (!isNaN(pdm) && pdm > 0) {
+                sendWebSocketMessage({ type: "exchange", pdm: -pdm, displayPrice: sellPrice });
+                elements.sellInput.value = "";
+                if (updatePreview)
+                    updateSellPreview();
+            }
         }
 
         // ========== Event Handlers ==========
@@ -459,24 +497,9 @@
             }
         }
 
-        elements.buyBtn.onclick = () => {
-            const silver = parseFloat(elements.buyInput.value);
-            const pdm = silver * buyPrice;
-            if (!isNaN(silver) && silver > 0) {
-                sendWebSocketMessage({ type: "exchange", pdm: pdm, displayPrice: buyPrice });
-                elements.buyInput.value = "";
-                updateBuyPreview();
-            }
-        };
+        elements.buyBtn.onclick = () => buy();
 
-        elements.sellBtn.onclick = () => {
-            const pdm = parseFloat(elements.sellInput.value);
-            if (!isNaN(pdm) && pdm > 0) {
-                sendWebSocketMessage({ type: "exchange", pdm: -pdm, displayPrice: sellPrice });
-                elements.sellInput.value = "";
-                updateSellPreview();
-            }
-        };
+        elements.sellBtn.onclick = () => sell();
 
         elements.freezeBtn.onclick = () => {
             sendWebSocketMessage({ type: "freeze" });
@@ -486,13 +509,23 @@
             sendWebSocketMessage({ type: "allow-return" });
         };
 
-        elements.coffeeBtn.onclick = () => {
-            sendWebSocketMessage({ type: "event", event: "coffee" });
+        elements.fireEventBtn.onclick = () => {
+            const start = parseInt(elements.eventStart.value);
+            const duration = parseInt(elements.eventDuration.value);
+            const factor = parseFloat(elements.eventFactor.value);
+            if (!isNaN(start) && !isNaN(duration) && !isNaN(factor)) {
+                if (0 < start && 0 < duration && 0 < factor)
+                    sendWebSocketMessage({ "type": "event", "start": start, "duration": duration, "factor": factor });
+            }
+            elements.eventStart.value = "";
+            elements.eventDuration.value = "";
+            elements.eventFactor.value = "";
         };
 
-        elements.grantBtn.onclick = () => {
-            sendWebSocketMessage({ type: "event", event: "grant" });
+        elements.cancelEventBtn.onclick = () => {
+            sendWebSocketMessage({ "type": "cancel-event" });
         };
+
 
         // Theme toggle
         elements.themeToggle.onclick = () => {
@@ -505,6 +538,15 @@
         // Input event listeners
         elements.buyInput.addEventListener("input", updateBuyPreview);
         elements.sellInput.addEventListener("input", updateSellPreview);
+        elements.buyInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter")
+                buy(false);
+        });
+        elements.sellInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter")
+                sell(false);
+        });
+
         elements.muInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
                 const mu = parseFloat(elements.muInput.value);
@@ -522,6 +564,16 @@
                     sendWebSocketMessage({ type: "sigma", sigma: sigma });
                 } else {
                     sendWebSocketMessage({ type: "sigma", sigma: 0.0 });
+                }
+            }
+        });
+        elements.impactInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                const impact = parseFloat(elements.impactInput.value);
+                if (!isNaN(impact) && 0 < impact && impact <= 0.1) {
+                    sendWebSocketMessage({ type: "impact", impact: impact });
+                } else {
+                    sendWebSocketMessage({ type: "impact", impact: 0.0 });
                 }
             }
         });

@@ -5,6 +5,7 @@ import random
 import threading
 import time
 import numpy as np
+import scipy.optimize as optimize
 
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
@@ -23,7 +24,7 @@ MAX_PRICE = 30  # soft limit, will slowly return to INITIAL_PRICE if exceeded
 MU_RETURN = 0.01  # soft return average
 BASE_SIGMA = 0.05  # intrinsic randomness in the price
 EXCHANGE_IMPACT = 0.005  # how much buying/selling affects the price
-APPEND_ON_FREEZE = False  # continue the market but at the same price
+APPEND_ON_FREEZE = True  # continue the market but at the same price
 LOAD_FROM_FILE = True  # load the history from the csv
 
 
@@ -40,10 +41,11 @@ class MarketEngine:
 
         self.mu = 0
         self.sigma = BASE_SIGMA
+        self.exchange_impact = EXCHANGE_IMPACT
 
         self.event = Event.make_empty()  # only one event at a time
 
-        self.frozen = False
+        self.frozen = True
         self.allow_return = True  # Arnoh
         self.returning = 0  # -1, 0, 1 (down, off, up)
 
@@ -113,7 +115,7 @@ class MarketEngine:
             # impact = pdm * EXCHANGE_IMPACT / (1 + price)
             # price *= 1 + impact
 
-            price *= np.exp2(EXCHANGE_IMPACT * pdm / price)
+            price *= np.exp2(self.exchange_impact * pdm / price)
 
             self.prices[-1] = price
 
@@ -122,14 +124,12 @@ class MarketEngine:
 
     def queue_event(self, event):
         with state_lock:
-            if self.event.finished or self.event.priority < event.priority:
+            if self.event.finished:
                 self.event = event
-                if event.finished:
-                    print("event", event.name, "already finished")
-                else:
-                    print("event", event.name, "started")
-            else:
-                print("event", event.name, "ignored")
+
+    def cancel_event(self):
+        with state_lock:
+            self.event.finished = True
 
     def to_dict(self):
         return {
@@ -137,6 +137,7 @@ class MarketEngine:
             "prices": self.prices,
             "mu": self.mu,
             "sigma": self.sigma,
+            "exchange_impact": self.exchange_impact,
             "frozen": self.frozen,
             "allow_return": self.allow_return,
             "returning": self.returning,
@@ -147,12 +148,28 @@ class MarketEngine:
 # ----------------------------- Events -----------------------------
 
 class Event:
-    def __init__(self, name, start_tick, dticks, max_mu, priority=1):
-        self.name = name
+    def __init__(self, start_tick, dticks, factor):
         self.tick = -start_tick  # tick since start
+        self.start_tick = start_tick
         self.dticks = dticks  # duration of event in ticks
-        self.max_mu = max_mu
-        self.priority = priority
+        self.factor = factor
+
+        if self.dticks == 0:
+            self.dticks = 1
+        # self.mu = factor**(1/self.dticks) - 1
+
+        # find self.mu such that product of all (1+mu) = factor
+        def eq(M):
+            f = 1
+            for tick in range(self.dticks):
+                t = (tick+1) / (self.dticks+1)
+                f *= 1 + M * self.fmu(t)
+            return f - factor
+
+        self.mu = optimize.newton(eq, 0.5)
+
+        if (np.isnan(self.mu) or abs(self.mu) > 3):
+            self.mu = 0
 
         self.finished = False
 
@@ -161,42 +178,46 @@ class Event:
             return price
 
         if self.tick >= 0:
-            if self.tick >= self.dticks - 1:
+            if self.tick >= self.dticks:
                 self.finished = True
-            mu = self.mu(self.tick / (self.dticks - 1))
+                return price
+            # self.tick in [0, dticks-1]
 
-            noise_factor = random.gauss(mu, BASE_SIGMA)
+            t = (self.tick + 1) / (self.dticks + 1)
+            noise_factor = random.gauss(self.mu * self.fmu(t), BASE_SIGMA)
             price *= (1 + noise_factor)
 
         self.tick += 1
         return price
 
-    def mu(self, t):
+    def fmu(self, t):
         # polynomial bump: [0, 1] |-> [0, max_mu]
         x = (t-0.5)**2
-        return (1 - x / (0.5**3) + x**2 / 0.5**4) * self.max_mu
+        return (1 - x / (0.5**3) + x**2 / 0.5**4)
 
     def make_empty():
-        event = Event("empty", 0, 0, 0, 0)
-        event.started = True
+        event = Event(0, 0, 0)
         event.finished = True
         return event
 
     def to_dict(self):
         return {
-            "name": self.name,
             "tick": self.tick,
             "dticks": self.dticks,
-            "max_mu": self.max_mu,
-            "priority": self.priority,
+            "mu": self.mu,
+            "factor": self.factor,
             "finished": self.finished,
         }
 
 
-EVENTS = {
-    "coffee": Event("coffee", start_tick=3, dticks=10, max_mu=-0.2),
-    "grant": Event("grant", start_tick=3, dticks=10, max_mu=0.2),
-}
+# def min_to_tick(mins):
+#     return int(60 * mins / INTERVAL)
+
+
+# EVENTS = {
+#     "up": Event("up", start_tick=5, dticks=7, max_mu=0.2),
+#     "down": Event("down", start_tick=5, dticks=7, max_mu=-0.2),
+# }
 
 # ----------------------------- WebSocket Manager -------------------------
 
@@ -274,17 +295,36 @@ async def websocket_endpoint(websocket: WebSocket):
                 await manager.broadcast({"type": "engine", "engine": engine.to_dict()})
 
             if mtype == "event":
-                event = EVENTS[msg.get("event")]
+                start = msg.get("start")
+                duration = msg.get("duration")
+                factor = msg.get("factor")
+
+                # Create a new event with the provided parameters
+                event = Event(start, duration, factor)
                 engine.queue_event(event)
+
+            if mtype == "cancel-event":
+                engine.cancel_event()
+                await manager.broadcast({"type": "engine", "engine": engine.to_dict()})
 
             if mtype == "mu":
                 engine.mu = msg.get("mu")
+                await manager.broadcast({"type": "engine", "engine": engine.to_dict()})
 
             if mtype == "sigma":
                 sigma = msg.get("sigma")
                 if sigma <= 0:
                     sigma = BASE_SIGMA
                 engine.sigma = sigma
+                await manager.broadcast({"type": "engine", "engine": engine.to_dict()})
+
+            if mtype == "impact":
+                impact = msg.get("impact")
+                if 0 < impact and impact <= 0.1:
+                    engine.exchange_impact = impact
+                else:
+                    engine.exchange_impact = EXCHANGE_IMPACT
+                await manager.broadcast({"type": "engine", "engine": engine.to_dict()})
 
     except Exception:
         pass
@@ -337,9 +377,11 @@ if __name__ == "__main__":
 
 
 """
-- add low/high ints for pdm selling
-- add up/down button for manual control
-- set price to global stock of silver/pdm -> problem buy/sell is nonlinear?
-- operator/ add max/min exchange to fail the market, for me to see and not break the market
-- make sure net price change = 0 for many exchanges!!!!!
+FINAL CHECKS:
+- check color grid lines! -> these do not change with theme!
+- trade log overflow
+- restart server
+- themes
+- mu control
+- events
 """
